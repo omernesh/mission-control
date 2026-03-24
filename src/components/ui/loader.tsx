@@ -160,61 +160,45 @@ function PageLoader({ steps }: { steps?: InitStep[] }) {
           </p>
         </div>
 
-        {/* Progress section — appears after logo animation, only while loading */}
+        {/* Progress section — visible immediately, updates in real-time */}
         {steps ? (
           <div
-            className="w-full flex flex-col items-center gap-4 opacity-0"
-            style={{ animation: 'mcFadeIn 0.6s ease-out 2.4s forwards' }}
+            className="w-full flex flex-col items-center gap-3 opacity-0"
+            style={{ animation: 'mcFadeIn 0.4s ease-out 0.8s forwards' }}
           >
             {/* Progress bar */}
-            <div className="w-full space-y-1.5">
+            <div className="w-full">
               <div className="w-full h-1 bg-border/30 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary shimmer-bar rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <div className="flex justify-between items-center">
-                <span className="font-mono text-[10px] text-muted-foreground/40">
-                  {doneCount}/{totalCount}
-                </span>
-                <span className="font-mono text-[10px] text-muted-foreground/40">
-                  {Math.round(progress)}%
-                </span>
-              </div>
             </div>
 
-            {/* Step list — shows recent completed + active step */}
-            <div className="w-full space-y-1">
-              {steps.map((step) => {
-                const isDone = step.status === 'done'
-                const isActive = step === activeStep
-                if (!isDone && !isActive) return null
-                return (
-                  <div
-                    key={step.key}
-                    className={`flex items-center gap-2 transition-all duration-300 ${
-                      isDone ? 'opacity-40' : 'opacity-100'
-                    }`}
-                    style={isActive ? { animation: 'fadeIn 0.3s ease-out' } : undefined}
-                  >
-                    {isDone ? (
-                      <svg className="w-3 h-3 text-green-500 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                        <path d="M3 8.5l3.5 3.5 6.5-8" />
-                      </svg>
-                    ) : (
-                      <div className="w-3 h-3 flex items-center justify-center shrink-0">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      </div>
-                    )}
-                    <span className={`font-mono text-2xs tracking-wide ${
-                      isActive ? 'text-muted-foreground' : 'text-muted-foreground/50'
-                    }`}>
-                      {step.label}
-                    </span>
-                  </div>
-                )
-              })}
+            {/* Active step label — only shows the current step being loaded */}
+            <div className="h-5 flex items-center justify-center">
+              {activeStep ? (
+                <div
+                  key={activeStep.key}
+                  className="flex items-center gap-2"
+                  style={{ animation: 'fadeIn 0.3s ease-out' }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <span className="font-mono text-2xs tracking-wide text-muted-foreground">
+                    {activeStep.label}
+                  </span>
+                </div>
+              ) : allDone ? (
+                <div className="flex items-center gap-2">
+                  <svg className="w-3 h-3 text-green-500" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M3 8.5l3.5 3.5 6.5-8" />
+                  </svg>
+                  <span className="font-mono text-2xs tracking-wide text-green-400/70">
+                    Ready
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : (
