@@ -463,6 +463,7 @@ function SessionConversationView({
   const isGatewaySession = session.sessionKind === 'gateway'
   const supportsPty = (session.sessionKind === 'claude-code' || session.sessionKind === 'codex-cli') && session.active
   const [viewMode, setViewMode] = useState<'terminal' | 'transcript'>('transcript')
+  const prevSessionIdRef = useRef(session.sessionId)
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null)
   const [continuePrompt, setContinuePrompt] = useState('')
   const [continueBusy, setContinueBusy] = useState(false)
@@ -475,6 +476,14 @@ function SessionConversationView({
   const hasPrefChanges =
     nameDraft.trim() !== (session.displayName || '').trim() ||
     colorDraft !== (session.colorTag || '')
+
+  // Only reset view mode when switching to a different session
+  useEffect(() => {
+    if (prevSessionIdRef.current !== session.sessionId) {
+      prevSessionIdRef.current = session.sessionId
+      setViewMode('transcript')
+    }
+  }, [session.sessionId])
 
   useEffect(() => {
     setNameDraft(session.displayName || '')
