@@ -291,12 +291,17 @@ function getInstallEnv(): NodeJS.ProcessEnv {
   try { mkdirSync(npmPrefix, { recursive: true }) } catch {}
   try { mkdirSync(path.join(homedir, '.npm'), { recursive: true }) } catch {}
 
+  // Include common install destinations in PATH so tools installed by
+  // sub-installers (e.g., uv installing Python to ~/.local/bin) are found
+  const localBin = path.join(homedir, '.local', 'bin')
+  try { mkdirSync(localBin, { recursive: true }) } catch {}
+
   return {
     ...process.env,
     HOME: homedir,
     npm_config_prefix: npmPrefix,
     npm_config_cache: path.join(homedir, '.npm'),
-    PATH: `${npmPrefix}/bin:${process.env.PATH || ''}`,
+    PATH: `${localBin}:${npmPrefix}/bin:${homedir}/bin:/usr/local/bin:${process.env.PATH || ''}`,
   }
 }
 
