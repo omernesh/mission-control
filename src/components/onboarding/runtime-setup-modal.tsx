@@ -206,7 +206,8 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
   const [hermesStatus, setHermesStatus] = useState<any>(null)
   const [providerKey, setProviderKey] = useState('')
   const [providerType, setProviderType] = useState<'anthropic' | 'openai' | 'openai_oauth' | 'openrouter' | 'nous' | 'google' | 'xai'>('anthropic')
-  const [selectedModel, setSelectedModel] = useState('')
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-6')
+  const [customModel, setCustomModel] = useState('')
   const [providerSaved, setProviderSaved] = useState(false)
   const [soulContent, setSoulContent] = useState('')
 
@@ -371,33 +372,46 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
             ))}
           </div>
 
-          {/* Dynamic provider config */}
-          <div className="p-3 rounded-lg border border-border/20 bg-secondary/10 text-xs space-y-2">
-            <div className="space-y-2">
-              <CopyableCommand command={`hermes config set model.provider ${hermesProviderName}`} label="Set provider" runnable />
-            </div>
-            {/* Model selector */}
-            <div className="flex items-center gap-2 mt-2">
-              <label className="text-xs text-muted-foreground shrink-0">Model:</label>
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="flex-1 h-7 rounded border border-border/40 bg-card px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 font-mono"
-              >
+          {/* Provider + Model config */}
+          <div className="p-3 rounded-lg border border-border/20 bg-secondary/10 text-xs space-y-3">
+            {/* Provider command */}
+            <CopyableCommand command={`hermes config set model.provider ${hermesProviderName}`} label="Set provider" runnable />
+
+            {/* Model selection */}
+            <div>
+              <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider block mb-1.5">Model</label>
+              <div className="grid grid-cols-2 gap-1.5 mb-2">
                 {providerModels.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => { setSelectedModel(m); setCustomModel('') }}
+                    className={`px-2 py-1.5 rounded text-[11px] font-mono text-left transition-colors ${
+                      selectedModel === m && !customModel
+                        ? 'bg-primary/10 border border-primary/30 text-foreground'
+                        : 'bg-black/20 border border-transparent text-muted-foreground/70 hover:text-foreground hover:border-border/30'
+                    }`}
+                  >
+                    {m}
+                  </button>
                 ))}
-              </select>
+              </div>
+              <input
+                type="text"
+                value={customModel}
+                onChange={(e) => { setCustomModel(e.target.value); if (e.target.value) setSelectedModel(e.target.value) }}
+                placeholder="Or enter a custom model name..."
+                className="w-full h-7 rounded border border-border/30 bg-black/20 px-2 text-[11px] text-foreground font-mono placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/30"
+              />
             </div>
-            {selectedModel && (
-              <CopyableCommand command={`hermes config set model.default ${selectedModel}`} label="Set model" runnable />
-            )}
+
+            <CopyableCommand command={`hermes config set model.default ${customModel || selectedModel}`} label="Set model" runnable />
           </div>
 
           {/* API Key input */}
           <div>
             <label className="text-xs text-muted-foreground block mb-1">
-              {currentProvider?.label} API Key{providerType === 'openai_oauth' ? ' (optional)' : ''}
+              {currentProvider?.label} API Key
             </label>
             <input
               type="password"
