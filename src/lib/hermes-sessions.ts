@@ -74,9 +74,19 @@ function hasHermesCliBinary(): boolean {
   ].filter((v): v is string => Boolean(v && v.trim()))
   const installed = candidates.some((bin) => {
     try {
-      const res = spawnSync(bin, ['--version'], { stdio: 'ignore', timeout: 1200 })
-      return res.status === 0
-    } catch {
+      // First check if the file exists (fast path for absolute paths)
+      if (bin.startsWith('/') && !existsSync(bin)) {
+        logger.debug({ bin }, 'hermes candidate not found on disk')
+        return false
+      }
+      const res = spawnSync(bin, ['--version'], { stdio: 'pipe', timeout: 5000 })
+      const found = res.status === 0
+      if (found) {
+        logger.info({ bin, stdout: (res.stdout || '').toString().trim().slice(0, 60) }, 'hermes binary detected')
+      }
+      return found
+    } catch (err) {
+      logger.debug({ bin, err }, 'hermes candidate check failed')
       return false
     }
   })

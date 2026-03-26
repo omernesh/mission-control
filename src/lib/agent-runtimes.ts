@@ -396,7 +396,9 @@ async function installHermesLocal(job: InstallJob): Promise<void> {
 
     // Verify install actually worked — check for the binary
     clearHermesDetectionCache()
+    logger.info({ dataDir: config.dataDir, homeDir: require('node:os').homedir() }, 'Verifying hermes install...')
     const verified = isHermesInstalled()
+    logger.info({ verified }, 'Hermes install verification result')
 
     if (result.code === 0 && verified) {
       job.status = 'success'
