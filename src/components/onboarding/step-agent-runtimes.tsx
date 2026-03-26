@@ -3,6 +3,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader } from '@/components/ui/loader'
+import { RuntimeSetupModal } from './runtime-setup-modal'
+
+const HERMES_PROVIDERS = [
+  { id: 'anthropic', label: 'Anthropic', hermesId: 'anthropic', models: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5'], env: 'ANTHROPIC_API_KEY' },
+  { id: 'openai', label: 'OpenAI', hermesId: 'openai', models: ['gpt-4.1', 'gpt-4.1-mini', 'o3', 'codex-mini-latest'], env: 'OPENAI_API_KEY' },
+  { id: 'openrouter', label: 'OpenRouter', hermesId: 'openrouter', models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4.1'], env: 'OPENROUTER_API_KEY' },
+  { id: 'google', label: 'Google AI', hermesId: 'google', models: ['gemini-2.5-pro', 'gemini-2.5-flash'], env: 'GOOGLE_API_KEY' },
+  { id: 'nous', label: 'Nous Portal', hermesId: 'nous', models: ['hermes-3-llama-3.1-70b'], env: 'NOUS_API_KEY' },
+  { id: 'xai', label: 'xAI', hermesId: 'xai', models: ['grok-3', 'grok-3-mini'], env: 'XAI_API_KEY' },
+]
 
 interface RuntimeStatus {
   id: string
@@ -43,6 +53,15 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
   const [loading, setLoading] = useState(true)
   const [activeJobs, setActiveJobs] = useState<Record<string, InstallJob>>({})
   const [copiedYaml, setCopiedYaml] = useState<string | null>(null)
+  const [setupRuntime, setSetupRuntime] = useState<'openclaw' | 'hermes' | null>(null)
+  const [setupCompleted, setSetupCompleted] = useState<Set<string>>(new Set())
+  const [hermesProvider, setHermesProvider] = useState('anthropic')
+  const [hermesModel, setHermesModel] = useState('claude-sonnet-4-6')
+  const [hermesApiKey, setHermesApiKey] = useState('')
+  const [hermesConfigSaved, setHermesConfigSaved] = useState(false)
+  const [hermesConfigBusy, setHermesConfigBusy] = useState(false)
+  const [hermesMigrating, setHermesMigrating] = useState(false)
+  const [hermesMigrateResult, setHermesMigrateResult] = useState<string | null>(null)
 
   const fetchRuntimes = useCallback(async () => {
     try {
@@ -230,6 +249,112 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
                         </p>
                       )}
 
+                      {/* Hermes inline quick config */}
+                      {rt.id === 'hermes' && (rt.installed || justInstalled) && !hermesConfigSaved && (
+                        <div className="mt-2 p-2.5 rounded-lg border border-border/20 bg-black/10 space-y-2">
+                          <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">Quick Setup</p>
+
+                          {/* Provider pills */}
+                          <div className="flex flex-wrap gap-1">
+                            {HERMES_PROVIDERS.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => { setHermesProvider(p.id); setHermesModel(p.models[0]) }}
+                                className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${
+                                  hermesProvider === p.id
+                                    ? 'bg-primary/15 border border-primary/30 text-foreground'
+                                    : 'bg-black/15 border border-border/10 text-muted-foreground/60 hover:text-foreground'
+                                }`}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Model pills */}
+                          <div className="flex flex-wrap gap-1">
+                            {(HERMES_PROVIDERS.find(p => p.id === hermesProvider)?.models || []).map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setHermesModel(m)}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                                  hermesModel === m
+                                    ? 'bg-primary/15 border border-primary/30 text-foreground'
+                                    : 'bg-black/15 border border-border/10 text-muted-foreground/50 hover:text-foreground'
+                                }`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* API Key */}
+                          <input
+                            type="password"
+                            value={hermesApiKey}
+                            onChange={(e) => setHermesApiKey(e.target.value)}
+                            placeholder={`${HERMES_PROVIDERS.find(p => p.id === hermesProvider)?.label || ''} API key`}
+                            className="w-full h-6 rounded border border-border/20 bg-black/15 px-2 text-[10px] text-foreground font-mono placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          />
+
+                          {/* Save button */}
+                          <button
+                            type="button"
+                            disabled={hermesConfigBusy}
+                            onClick={async () => {
+                              setHermesConfigBusy(true)
+                              try {
+                                const hp = HERMES_PROVIDERS.find(p => p.id === hermesProvider)
+                                // Set provider + model
+                                await fetch('/api/hermes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'run-command', command: `hermes config set model.provider ${hp?.hermesId || hermesProvider}` }) })
+                                await fetch('/api/hermes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'run-command', command: `hermes config set model.default ${hermesModel}` }) })
+                                // Save API key if provided
+                                if (hermesApiKey.trim() && hp?.env) {
+                                  await fetch('/api/hermes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set-env', key: hp.env, value: hermesApiKey }) })
+                                }
+                                setHermesConfigSaved(true)
+                              } catch { /* ignore */ }
+                              setHermesConfigBusy(false)
+                            }}
+                            className="w-full text-2xs py-1 rounded border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                          >
+                            {hermesConfigBusy ? 'Saving...' : 'Apply Configuration'}
+                          </button>
+
+                          {/* OpenClaw migration option */}
+                          {runtimes.find(r => r.id === 'openclaw')?.installed && (
+                            <div className="pt-1.5 border-t border-border/10">
+                              <button
+                                type="button"
+                                disabled={hermesMigrating}
+                                onClick={async () => {
+                                  setHermesMigrating(true)
+                                  setHermesMigrateResult(null)
+                                  try {
+                                    const res = await fetch('/api/hermes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'run-command', command: 'hermes claw migrate --preset user-data' }) })
+                                    const data = await res.json()
+                                    setHermesMigrateResult(data.success ? 'Migration complete' : (data.error || 'Migration failed'))
+                                  } catch { setHermesMigrateResult('Migration failed') }
+                                  setHermesMigrating(false)
+                                }}
+                                className="text-2xs text-amber-400/70 hover:text-amber-400 transition-colors"
+                              >
+                                {hermesMigrating ? 'Migrating...' : 'Migrate from OpenClaw'}
+                              </button>
+                              {hermesMigrateResult && (
+                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">{hermesMigrateResult}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {hermesConfigSaved && rt.id === 'hermes' && (
+                        <p className="text-2xs text-emerald-400/70 mt-1">Provider configured</p>
+                      )}
+
                       {/* Install actions */}
                       {!rt.installed && !justInstalled && (
                         <div className="mt-2">
@@ -278,6 +403,18 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
           Continue
         </Button>
       </div>
+
+      {setupRuntime && (
+        <RuntimeSetupModal
+          runtime={setupRuntime}
+          onClose={() => setSetupRuntime(null)}
+          onComplete={() => {
+            setSetupCompleted(prev => new Set([...prev, setupRuntime]))
+            setSetupRuntime(null)
+            fetchRuntimes()
+          }}
+        />
+      )}
     </>
   )
 }
