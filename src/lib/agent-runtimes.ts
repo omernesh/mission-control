@@ -321,9 +321,13 @@ async function runInstallCmd(cmd: string, args: string[], job: InstallJob): Prom
 
 async function installOpenClawLocal(job: InstallJob): Promise<void> {
   job.output += '> Installing OpenClaw...\n'
-  const env = getInstallEnv()
+  const env = {
+    ...getInstallEnv(),
+    NONINTERACTIVE: '1',
+    CI: '1',
+  }
   try {
-    const result = await runCommand('bash', ['-c', 'set -o pipefail; curl -fsSL https://get.openclaw.dev | bash'], {
+    const result = await runCommand('bash', ['-c', 'set -o pipefail; yes "" 2>/dev/null | curl -fsSL https://get.openclaw.dev | bash'], {
       timeoutMs: 300_000, env,
     })
     if (result.stdout) job.output += result.stdout + '\n'
@@ -362,9 +366,17 @@ async function installOpenClawLocal(job: InstallJob): Promise<void> {
 
 async function installHermesLocal(job: InstallJob): Promise<void> {
   job.output += '> Installing Hermes Agent via official installer...\n'
-  const env = getInstallEnv()
+  const env = {
+    ...getInstallEnv(),
+    // Non-interactive: prevent installer from reading /dev/tty
+    HERMES_NONINTERACTIVE: '1',
+    NONINTERACTIVE: '1',
+    CI: '1',
+    DEBIAN_FRONTEND: 'noninteractive',
+  }
   try {
-    const result = await runCommand('bash', ['-c', 'set -o pipefail; curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash'], {
+    // Pipe 'yes' to handle any interactive prompts, use pipefail to catch curl errors
+    const result = await runCommand('bash', ['-c', 'set -o pipefail; yes "" 2>/dev/null | curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash'], {
       timeoutMs: 600_000, env,
     })
     if (result.stdout) job.output += result.stdout + '\n'

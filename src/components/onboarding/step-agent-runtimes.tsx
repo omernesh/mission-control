@@ -172,10 +172,10 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
               >
                 {/* Installing shimmer overlay */}
                 {isInstalling && (
-                  <div className="absolute inset-0 overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-[shimmer_2s_infinite]" style={{ backgroundSize: '200% 100%' }} />
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-500/5 to-transparent animate-[shimmer_2s_infinite]" style={{ backgroundSize: '200% 100%' }} />
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-border/20 overflow-hidden">
-                      <div className="h-full bg-primary/60 animate-[indeterminate_1.5s_infinite_ease-in-out]" />
+                      <div className="h-full bg-emerald-500/60 animate-[indeterminate_1.5s_infinite_ease-in-out]" />
                     </div>
                   </div>
                 )}
@@ -189,18 +189,28 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
                   )}
 
                   {isInstalling ? (
-                    /* Full-card installing state */
-                    <div className="flex flex-col items-center justify-center py-2 gap-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                        <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary">
-                          {rt.name.charAt(0)}
+                    /* Full-card installing state with live output */
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative shrink-0">
+                          <div className="w-8 h-8 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+                          <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                            {rt.name.charAt(0)}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-foreground">{rt.name}</p>
+                          <p className="text-2xs text-emerald-400/70">Installing...</p>
                         </div>
                       </div>
-                      <div className="text-center">
-                        <p className="text-xs font-medium text-foreground">{rt.name}</p>
-                        <p className="text-2xs text-primary/70 mt-0.5">Installing...</p>
-                      </div>
+                      {/* Live output tail */}
+                      {job?.output && (
+                        <div className="bg-black/30 rounded px-2 py-1.5 max-h-20 overflow-y-auto">
+                          <pre className="font-mono text-[10px] text-muted-foreground/60 whitespace-pre-wrap break-all leading-relaxed">
+                            {job.output.trim().split('\n').slice(-6).join('\n')}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
