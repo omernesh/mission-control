@@ -162,72 +162,100 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
             return (
               <div
                 key={rt.id}
-                className={`relative p-4 rounded-lg border text-left transition-all ${
-                  rt.installed || justInstalled
-                    ? `border-emerald-500/30 bg-emerald-500/5`
-                    : 'border-border/30 bg-surface-1/30'
+                className={`relative rounded-lg border text-left transition-all overflow-hidden ${
+                  isInstalling
+                    ? 'border-primary/30 bg-primary/5'
+                    : rt.installed || justInstalled
+                      ? 'border-emerald-500/30 bg-emerald-500/5'
+                      : 'border-border/30 bg-surface-1/30'
                 }`}
               >
-                {/* Status badge */}
-                {(rt.installed || justInstalled) && (
-                  <span className="absolute -top-2 right-2 text-2xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    Detected
-                  </span>
-                )}
-
-                <p className={`text-sm font-medium mb-1 ${rt.installed || justInstalled ? 'text-emerald-400' : 'text-foreground'}`}>
-                  {rt.name}
-                </p>
-                <p className="text-xs text-muted-foreground mb-2">{rt.description}</p>
-
-                {rt.version && (
-                  <p className="text-2xs text-muted-foreground/60 mb-1">v{rt.version}</p>
-                )}
-
-                {/* Auth status for runtimes that need it */}
-                {rt.installed && rt.authRequired && (
-                  <p className={`text-2xs mb-1 ${rt.authenticated ? 'text-emerald-400/70' : 'text-amber-400'}`}>
-                    {rt.authenticated ? 'Authenticated' : rt.authHint}
-                  </p>
-                )}
-
-                {/* Install actions */}
-                {!rt.installed && !justInstalled && (
-                  <div className="mt-2">
-                    {isInstalling ? (
-                      <div className="flex items-center gap-2 text-2xs text-muted-foreground">
-                        <Loader /> Installing...
-                      </div>
-                    ) : installFailed ? (
-                      <div className="space-y-1">
-                        <p className="text-2xs text-red-400">Install failed: {job?.error || 'Unknown error'}</p>
-                        <button
-                          onClick={() => handleInstall(rt.id)}
-                          className="text-2xs px-2 py-1 rounded border border-border/40 hover:border-border/60 text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleInstall(rt.id)}
-                          className={`text-2xs px-2 py-1 rounded border ${mc.border} ${mc.bgBtn} ${mc.text} ${mc.hoverBg} transition-colors`}
-                        >
-                          Install
-                        </button>
-                        {isDocker && (
-                          <button
-                            onClick={() => handleCopyCompose(rt.id)}
-                            className="text-2xs px-2 py-1 rounded border border-border/40 hover:border-border/60 text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            {copiedYaml === rt.id ? 'Copied!' : 'Sidecar YAML'}
-                          </button>
-                        )}
-                      </div>
-                    )}
+                {/* Installing shimmer overlay */}
+                {isInstalling && (
+                  <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-[shimmer_2s_infinite]" style={{ backgroundSize: '200% 100%' }} />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-border/20 overflow-hidden">
+                      <div className="h-full bg-primary/60 animate-[indeterminate_1.5s_infinite_ease-in-out]" />
+                    </div>
                   </div>
                 )}
+
+                <div className="relative p-4">
+                  {/* Status badge */}
+                  {(rt.installed || justInstalled) && !isInstalling && (
+                    <span className="absolute -top-0.5 right-2 text-2xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Detected
+                    </span>
+                  )}
+
+                  {isInstalling ? (
+                    /* Full-card installing state */
+                    <div className="flex flex-col items-center justify-center py-2 gap-3">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                        <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary">
+                          {rt.name.charAt(0)}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-medium text-foreground">{rt.name}</p>
+                        <p className="text-2xs text-primary/70 mt-0.5">Installing...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className={`text-sm font-medium mb-1 ${rt.installed || justInstalled ? 'text-emerald-400' : 'text-foreground'}`}>
+                        {rt.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-2">{rt.description}</p>
+
+                      {rt.version && (
+                        <p className="text-2xs text-muted-foreground/60 mb-1">v{rt.version}</p>
+                      )}
+
+                      {/* Auth status */}
+                      {rt.installed && rt.authRequired && (
+                        <p className={`text-2xs mb-1 ${rt.authenticated ? 'text-emerald-400/70' : 'text-amber-400'}`}>
+                          {rt.authenticated ? 'Authenticated' : rt.authHint}
+                        </p>
+                      )}
+
+                      {/* Install actions */}
+                      {!rt.installed && !justInstalled && (
+                        <div className="mt-2">
+                          {installFailed ? (
+                            <div className="space-y-1">
+                              <p className="text-2xs text-red-400">Install failed: {job?.error || 'Unknown error'}</p>
+                              <button
+                                onClick={() => handleInstall(rt.id)}
+                                className="text-2xs px-2 py-1 rounded border border-border/40 hover:border-border/60 text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                Retry
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleInstall(rt.id)}
+                                className={`text-2xs px-2 py-1 rounded border ${mc.border} ${mc.bgBtn} ${mc.text} ${mc.hoverBg} transition-colors`}
+                              >
+                                Install
+                              </button>
+                              {isDocker && (
+                                <button
+                                  onClick={() => handleCopyCompose(rt.id)}
+                                  className="text-2xs px-2 py-1 rounded border border-border/40 hover:border-border/60 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  {copiedYaml === rt.id ? 'Copied!' : 'Sidecar YAML'}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )
           })}
