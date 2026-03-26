@@ -59,7 +59,18 @@ function hasHermesCliBinary(): boolean {
     return hermesBinaryCache.installed
   }
 
-  const candidates = [process.env.HERMES_BIN, 'hermes-agent', 'hermes'].filter((v): v is string => Boolean(v && v.trim()))
+  // Check common install locations including the data directory's local bin
+  // (Docker installs end up at {dataDir}/.local/bin/hermes)
+  const dataDir = config.dataDir || '.data'
+  const homeDir = config.homeDir || process.env.HOME || ''
+  const candidates = [
+    process.env.HERMES_BIN,
+    join(dataDir, '.local', 'bin', 'hermes'),
+    join(homeDir, '.local', 'bin', 'hermes'),
+    join(homeDir, '.hermes', 'hermes-agent', 'venv', 'bin', 'hermes'),
+    'hermes-agent',
+    'hermes',
+  ].filter((v): v is string => Boolean(v && v.trim()))
   const installed = candidates.some((bin) => {
     try {
       const res = spawnSync(bin, ['--version'], { stdio: 'ignore', timeout: 1200 })

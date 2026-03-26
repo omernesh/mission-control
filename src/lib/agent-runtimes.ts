@@ -140,7 +140,17 @@ function detectHermes(): RuntimeStatus {
 
   if (installed) {
     try {
-      const candidates = [process.env.HERMES_BIN, 'hermes-agent', 'hermes'].filter(Boolean) as string[]
+      const path = require('node:path')
+      const dataDir = config.dataDir || '.data'
+      const homeDir = require('node:os').homedir()
+      const candidates = [
+        process.env.HERMES_BIN,
+        path.join(dataDir, '.local', 'bin', 'hermes'),
+        path.join(homeDir, '.local', 'bin', 'hermes'),
+        path.join(homeDir, '.hermes', 'hermes-agent', 'venv', 'bin', 'hermes'),
+        'hermes-agent',
+        'hermes',
+      ].filter(Boolean) as string[]
       for (const bin of candidates) {
         try {
           const result = require('node:child_process').spawnSync(bin, ['--version'], { stdio: 'pipe', timeout: 1200 })
