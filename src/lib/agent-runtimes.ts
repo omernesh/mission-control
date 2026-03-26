@@ -340,9 +340,8 @@ async function installOpenClawLocal(job: InstallJob): Promise<void> {
   try {
     const result = await runCommand('bash', ['-c', 'set -o pipefail; curl -fsSL https://get.openclaw.dev | bash -s -- --non-interactive'], {
       timeoutMs: 300_000, env,
+      onData: (chunk) => { job.output += chunk },
     })
-    if (result.stdout) job.output += result.stdout + '\n'
-    if (result.stderr) job.output += result.stderr + '\n'
 
     // Verify the binary actually exists after install
     const { installed: verified } = detectBinary([config.openclawBin || 'openclaw'])
@@ -387,12 +386,11 @@ async function installHermesLocal(job: InstallJob): Promise<void> {
   }
   try {
     // Use --skip-setup since MC handles setup in its own UI
-    // Pipe empty stdin to prevent /dev/tty reads in Docker
+    // Stream output to job in real-time so the UI shows progress
     const result = await runCommand('bash', ['-c', 'set -o pipefail; curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup'], {
       timeoutMs: 600_000, env,
+      onData: (chunk) => { job.output += chunk },
     })
-    if (result.stdout) job.output += result.stdout + '\n'
-    if (result.stderr) job.output += result.stderr + '\n'
 
     // Verify install actually worked — check for the binary
     clearHermesDetectionCache()

@@ -85,7 +85,7 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
           // ignore
         }
       }
-    }, 2000)
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [activeJobs, fetchRuntimes])
