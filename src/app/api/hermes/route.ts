@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
             done = true
             try { pty.kill() } catch { /* ignore */ }
             resolve({ code: 124, output: output.trim() })
-          }, 45_000)
+          }, 300_000)
 
           pty.onData((data: string) => {
             output += data
