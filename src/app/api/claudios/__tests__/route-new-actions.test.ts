@@ -6,7 +6,11 @@ import { NextRequest } from 'next/server'
 // ---------------------------------------------------------------------------
 
 function makeRequest(url: string, opts?: RequestInit): NextRequest {
-  return new NextRequest(new URL(url, 'http://localhost:3001'), opts)
+  const { signal, ...rest } = opts ?? {}
+  return new NextRequest(new URL(url, 'http://localhost:3001'), {
+    ...rest,
+    ...(signal ? { signal: signal as AbortSignal } : {}),
+  })
 }
 
 // ---------------------------------------------------------------------------
