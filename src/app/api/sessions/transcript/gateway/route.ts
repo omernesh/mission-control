@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     const messages = parseJsonlTranscript(raw, limit)
 
     return NextResponse.json({ messages, source: 'gateway' })
-  } catch (err: any) {
+  } catch (err) {
     logger.warn({ err, sessionKey }, 'Gateway session transcript read failed')
     return NextResponse.json({ messages: [], source: 'gateway', error: 'Failed to read session transcript' })
   }

@@ -28,7 +28,7 @@ export function readErrorDetailCode(error: GatewayErrorDetail | null | undefined
   const detailsCode = error.details?.code
   if (typeof detailsCode === 'string' && detailsCode.length > 0) return detailsCode
   // Some frames carry code at the top level
-  const topCode = error.code
+  const topCode = (error as NodeJS.ErrnoException).code
   if (typeof topCode === 'string' && topCode.length > 0) return topCode
   return null
 }

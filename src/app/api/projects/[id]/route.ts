@@ -68,7 +68,7 @@ export async function GET(
     return NextResponse.json({ project })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'GET /api/projects/[id] error')
     return NextResponse.json({ error: 'Failed to fetch project' }, { status: 500 })
@@ -193,7 +193,7 @@ export async function PATCH(
     return NextResponse.json({ project })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'PATCH /api/projects/[id] error')
     return NextResponse.json({ error: 'Failed to update project' }, { status: 500 })
@@ -267,7 +267,7 @@ export async function DELETE(
     return NextResponse.json({ success: true, mode: 'delete' })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'DELETE /api/projects/[id] error')
     return NextResponse.json({ error: 'Failed to delete project' }, { status: 500 })

@@ -30,7 +30,7 @@ describe('readErrorDetailCode', () => {
     ).toBe('AUTH_TOKEN_MISSING')
   })
 
-  it('falls back to error.code when details.code is absent', () => {
+  it('falls back to (error as NodeJS.ErrnoException).code when details.code is absent', () => {
     expect(readErrorDetailCode({ code: 'ORIGIN_NOT_ALLOWED' })).toBe(
       'ORIGIN_NOT_ALLOWED',
     )

@@ -87,7 +87,7 @@ function callProvisioner(payload: ProvisionerRequest): Promise<ProvisionerRespon
 
     socket.on('error', (err) => {
       clearTimeout(timeout)
-      reject(new Error(`Provisioner socket error: ${err.message}`))
+      reject(new Error(`Provisioner socket error: ${err instanceof Error ? err.message : String(err)}`))
     })
 
     socket.on('close', () => {

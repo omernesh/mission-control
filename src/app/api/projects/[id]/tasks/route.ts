@@ -71,7 +71,7 @@ export async function GET(
     })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'GET /api/projects/[id]/tasks error')
     return NextResponse.json({ error: 'Failed to fetch project tasks' }, { status: 500 })

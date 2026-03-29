@@ -58,7 +58,7 @@ export async function GET(
     return NextResponse.json({ assignments })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'GET /api/projects/[id]/agents error')
     return NextResponse.json({ error: 'Failed to fetch agent assignments' }, { status: 500 })
@@ -116,7 +116,7 @@ export async function POST(
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'POST /api/projects/[id]/agents error')
     return NextResponse.json({ error: 'Failed to assign agent' }, { status: 500 })
@@ -171,7 +171,7 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'DELETE /api/projects/[id]/agents error')
     return NextResponse.json({ error: 'Failed to unassign agent' }, { status: 500 })

@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ projects })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'GET /api/projects error')
     return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 })
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ project }, { status: 201 })
   } catch (error) {
     if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: error.status })
     }
     logger.error({ err: error }, 'POST /api/projects error')
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 })

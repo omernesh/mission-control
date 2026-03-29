@@ -31,7 +31,7 @@ function ErrorFallback({ error, onRetry }: { error: Error | null; onRetry: () =>
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">{t('somethingWentWrong')}</h3>
       <p className="text-sm text-muted-foreground mb-4 max-w-md">
-        {error?.message || t('unexpectedError')}
+        {(error instanceof Error ? error.message : String(error)) || t('unexpectedError')}
       </p>
       <Button
         onClick={onRetry}
