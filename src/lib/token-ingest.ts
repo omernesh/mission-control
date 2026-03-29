@@ -1,0 +1,59 @@
+import { getDatabase } from '@/lib/db'
+import { calculateTokenCost } from '@/lib/token-pricing'
+
+/**
+ * Session data shape from Session Manager :7655 responses.
+ * Only token-relevant fields are required; others are optional.
+ */
+export interface ClaudiosSessionData {
+  id: string
+  model?: string
+  inputTokens?: number
+  outputTokens?: number
+  status?: string
+}
+
+/**
+ * Bridge Claudios session token data into the token_usage table.
+ *
+ * - Uses session_id = "claudios:{session.id}" to avoid collision with OpenClaw sessions
+ * - Deduplicates: if (session_id + model) already exists, skips the insert
+ * - Skips sessions with zero tokens
+ *
+ * @returns Number of newly inserted rows
+ */
+export function ingestClaudiosTokens(sessions: ClaudiosSessionData[]): number {
+  if (sessions.length === 0) return 0
+
+  const db = getDatabase()
+  let inserted = 0
+
+  for (const session of sessions) {
+    const inputTokens = session.inputTokens ?? 0
+    const outputTokens = session.outputTokens ?? 0
+
+    // Skip zero-token sessions — nothing to record
+    if (inputTokens === 0 && outputTokens === 0) continue
+
+    const sessionId = `claudios:${session.id}`
+    const model = session.model || 'unknown'
+
+    // Dedup check: skip if (session_id + model) already exists
+    const existing = db.prepare(
+      'SELECT id FROM token_usage WHERE session_id = ? AND model = ? LIMIT 1'
+    ).get(sessionId, model) as { id: number } | undefined | null
+
+    if (existing) continue
+
+    // Insert new record
+    const nowSec = Math.floor(Date.now() / 1000)
+    db.prepare(`
+      INSERT INTO token_usage (model, session_id, input_tokens, output_tokens, workspace_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(model, sessionId, inputTokens, outputTokens, 1, nowSec)
+
+    inserted++
+  }
+
+  return inserted
+}
