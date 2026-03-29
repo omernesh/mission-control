@@ -76,6 +76,15 @@ nssm set claudios-mc AppEnvironmentExtra "+NEXT_PUBLIC_GATEWAY_OPTIONAL=true"
 nssm set claudios-mc AppEnvironmentExtra "+AUTH_USER=admin"
 nssm set claudios-mc AppEnvironmentExtra "+AUTH_PASS=claudios-mc-local"
 
+# Claudios integration endpoints (Phase 95)
+# NOTE: Set WSHUB_PSK env var before running, or replace %WSHUB_PSK% with the actual value
+#       To find the PSK: nssm get claudios AppEnvironmentExtra | findstr PSK
+nssm set claudios-mc AppEnvironmentExtra "+SESSION_MANAGER_URL=http://localhost:7655"
+nssm set claudios-mc AppEnvironmentExtra "+ACP_URL=http://localhost:9878"
+nssm set claudios-mc AppEnvironmentExtra "+WSHUB_URL=ws://localhost:9877/ws"
+nssm set claudios-mc AppEnvironmentExtra "+CLAUDIOS_API_URL=http://localhost:3000"
+nssm set claudios-mc AppEnvironmentExtra "+WSHUB_PSK=%WSHUB_PSK%"
+
 # Create logs directory and configure log redirection
 New-Item -ItemType Directory -Force -Path "$McDir\logs" | Out-Null
 nssm set claudios-mc AppStdout "$McDir\logs\mc-stdout.log"
@@ -113,3 +122,4 @@ Write-Host "Verification:"
 Write-Host "  nssm get claudios-mc AppEnvironmentExtra"
 Write-Host "  Invoke-WebRequest http://localhost:3001 -UseBasicParsing"
 Write-Host "  Test-Path D:\claudebot\mission-control\.data\mission-control.db"
+Write-Host "  Claudios integration: SESSION_MANAGER_URL, ACP_URL, WSHUB_URL, CLAUDIOS_API_URL, WSHUB_PSK"
