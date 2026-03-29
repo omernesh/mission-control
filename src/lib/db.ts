@@ -25,8 +25,10 @@ export function getDatabase(): Database.Database {
     ensureDirExists(dirname(DB_PATH));
     try {
       db = new Database(DB_PATH);
-    } catch (err: any) {
-      if (err?.code === 'ERR_DLOPEN_FAILED' || (err?.message || '').includes('NODE_MODULE_VERSION')) {
+    } catch (err) {
+      const errCode = (err as NodeJS.ErrnoException).code
+      const errMsg = err instanceof Error ? err.message : ''
+      if (errCode === 'ERR_DLOPEN_FAILED' || errMsg.includes('NODE_MODULE_VERSION')) {
         const msg = [
           '',
           '═══════════════════════════════════════════════════════════════',

@@ -60,11 +60,11 @@ export async function GET(request: NextRequest) {
       raw_size: raw.length,
       hash,
     })
-  } catch (err: any) {
-    if (err.code === 'ENOENT') {
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return NextResponse.json({ error: 'Config file not found', path: configPath }, { status: 404 })
     }
-    return NextResponse.json({ error: `Failed to read config: ${err.message}` }, { status: 500 })
+    return NextResponse.json({ error: `Failed to read config: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
   }
 }
 
@@ -85,10 +85,10 @@ async function getSchema(): Promise<NextResponse> {
     }
     const data = await res.json()
     return NextResponse.json(data)
-  } catch (err: any) {
+  } catch (err) {
     clearTimeout(timeout)
     return NextResponse.json(
-      { error: err.name === 'AbortError' ? 'Gateway timeout' : 'Gateway unreachable' },
+      { error: (err instanceof Error ? err.name : undefined) === 'AbortError' ? 'Gateway timeout' : 'Gateway unreachable' },
       { status: 502 },
     )
   }
@@ -188,8 +188,8 @@ export async function PUT(request: NextRequest) {
       count: appliedKeys.length,
       hash: computeHash(newRaw),
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: `Failed to update config: ${err.message}` }, { status: 500 })
+  } catch (err) {
+    return NextResponse.json({ error: `Failed to update config: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
   }
 }
 
@@ -222,10 +222,10 @@ async function applyConfig(request: NextRequest, auth: any): Promise<NextRespons
     }
     const data = await res.json().catch(() => ({}))
     return NextResponse.json({ ok: true, ...data })
-  } catch (err: any) {
+  } catch (err) {
     clearTimeout(timeout)
     return NextResponse.json(
-      { error: err.name === 'AbortError' ? 'Gateway timeout' : 'Gateway unreachable' },
+      { error: (err instanceof Error ? err.name : undefined) === 'AbortError' ? 'Gateway timeout' : 'Gateway unreachable' },
       { status: 502 },
     )
   }
@@ -260,10 +260,10 @@ async function updateSystem(request: NextRequest, auth: any): Promise<NextRespon
     }
     const data = await res.json().catch(() => ({}))
     return NextResponse.json({ ok: true, ...data })
-  } catch (err: any) {
+  } catch (err) {
     clearTimeout(timeout)
     return NextResponse.json(
-      { error: err.name === 'AbortError' ? 'Gateway timeout' : 'Gateway unreachable' },
+      { error: (err instanceof Error ? err.name : undefined) === 'AbortError' ? 'Gateway timeout' : 'Gateway unreachable' },
       { status: 502 },
     )
   }

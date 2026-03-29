@@ -62,13 +62,14 @@ export async function POST(request: NextRequest) {
         const result = await runOpenClaw(['backup', 'create', '--output', BACKUP_DIR], { timeoutMs: 60000 })
         stdout = result.stdout
         stderr = result.stderr
-      } catch (error: any) {
+      } catch (error) {
         // openclaw backup may exit non-zero despite success — check output
-        stdout = error.stdout || ''
-        stderr = error.stderr || ''
+        const errObj = error as Record<string, unknown>
+        stdout = (typeof errObj.stdout === 'string' ? errObj.stdout : '') || ''
+        stderr = (typeof errObj.stderr === 'string' ? errObj.stderr : '') || ''
         const combined = `${stdout}\n${stderr}`
         if (!combined.includes('Created')) {
-          const message = stderr || error.message || 'Unknown error'
+          const message = stderr || (error instanceof Error ? error.message : String(error)) || 'Unknown error'
           logger.error({ err: error }, 'Gateway backup failed')
           return NextResponse.json({ error: `Gateway backup failed: ${message}` }, { status: 500 })
         }
@@ -85,9 +86,9 @@ export async function POST(request: NextRequest) {
       })
 
       return NextResponse.json({ success: true, output })
-    } catch (error: any) {
+    } catch (error) {
       logger.error({ err: error }, 'Gateway backup failed')
-      return NextResponse.json({ error: `Gateway backup failed: ${error.message}` }, { status: 500 })
+      return NextResponse.json({ error: `Gateway backup failed: ${error instanceof Error ? error.message : String(error)}` }, { status: 500 })
     }
   }
 
@@ -123,9 +124,9 @@ export async function POST(request: NextRequest) {
         created_at: Math.floor(stat.mtimeMs / 1000),
       },
     })
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, 'Backup failed')
-    return NextResponse.json({ error: `Backup failed: ${error.message}` }, { status: 500 })
+    return NextResponse.json({ error: `Backup failed: ${error instanceof Error ? error.message : String(error)}` }, { status: 500 })
   }
 }
 

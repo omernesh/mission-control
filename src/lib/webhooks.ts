@@ -219,8 +219,9 @@ async function deliverWebhook(
     if (responseBody && responseBody.length > 1000) {
       responseBody = responseBody.slice(0, 1000) + '...'
     }
-  } catch (err: any) {
-    error = err.name === 'AbortError' ? 'Timeout (10s)' : err.message
+  } catch (err) {
+    const isAbort = err instanceof Error && err.name === 'AbortError'
+    error = isAbort ? 'Timeout (10s)' : (err instanceof Error ? err.message : String(err))
   }
 
   const durationMs = Date.now() - start
@@ -366,7 +367,7 @@ export async function processWebhookRetries(): Promise<{ ok: boolean; message: s
     }
 
     return { ok: true, message: `Processed ${pendingRetries.length} retries (${succeeded} ok, ${failed} failed)` }
-  } catch (err: any) {
-    return { ok: false, message: `Webhook retry failed: ${err.message}` }
+  } catch (err) {
+    return { ok: false, message: `Webhook retry failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 }

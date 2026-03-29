@@ -74,9 +74,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Invalid action. Must be: install-hook, uninstall-hook' }, { status: 400 })
-  } catch (err: any) {
+  } catch (err) {
     logger.error({ err }, 'Hermes hook management failed')
-    return NextResponse.json({ error: err.message || 'Hook operation failed' }, { status: 500 })
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Hook operation failed' }, { status: 500 })
   }
 }
 

@@ -159,8 +159,8 @@ async function readEnvFile(): Promise<{ lines: EnvLine[]; raw: string } | null> 
   try {
     const raw = await readFile(envPath, 'utf-8')
     return { lines: parseEnv(raw), raw }
-  } catch (err: any) {
-    if (err.code === 'ENOENT') return { lines: [], raw: '' }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { lines: [], raw: '' }
     throw err
   }
 }
@@ -778,8 +778,8 @@ async function handleTest(
             env,
           })
           result = { ok: true, detail: 'Authenticated' }
-        } catch (err: any) {
-          const stderr = err.stderr?.toString() || ''
+        } catch (err) {
+          const stderr = (err as Record<string,unknown>).stderr?.toString() || ''
           result = { ok: false, detail: stderr.slice(0, 120) || 'Not authenticated — run `gws auth login`' }
         }
         break
@@ -825,8 +825,8 @@ async function handleTest(
     })
 
     return NextResponse.json(result)
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, detail: err.message || 'Connection failed' })
+  } catch (err) {
+    return NextResponse.json({ ok: false, detail: (err instanceof Error ? err.message : String(err)) || 'Connection failed' })
   }
 }
 
@@ -908,9 +908,9 @@ async function handlePull(
       detail: `Pulled ${envVar} from 1Password`,
       redacted: redactValue(value),
     })
-  } catch (err: any) {
+  } catch (err) {
     return NextResponse.json({
-      error: `1Password pull failed: ${err.message}`,
+      error: `1Password pull failed: ${err instanceof Error ? err.message : String(err)}`,
     }, { status: 500 })
   }
 }
@@ -986,8 +986,8 @@ async function handlePullAll(
       }
 
       results.push({ id: integration.id, envVar, ok: true, detail: `Pulled ${envVar}` })
-    } catch (err: any) {
-      results.push({ id: integration.id, envVar, ok: false, detail: err.message || 'Failed' })
+    } catch (err) {
+      results.push({ id: integration.id, envVar, ok: false, detail: (err instanceof Error ? err.message : String(err)) || 'Failed' })
     }
   }
 

@@ -237,8 +237,8 @@ export async function POST(request: NextRequest) {
         compatibility_warning: compatibilityWarning,
         ...(errorMessage ? { error: errorMessage } : {}),
       })
-    } catch (err: any) {
-      const errorMessage = err.name === "AbortError" ? "timeout" : (err.message || "connection failed")
+    } catch (err) {
+      const errorMessage = (err instanceof Error && err.name === "AbortError") ? "timeout" : ((err instanceof Error ? err.message : String(err)) || "connection failed")
       insertLogStmt.run(gw.id, "offline", null, probedAt, errorMessage)
       results.push({
         id: gw.id,

@@ -486,8 +486,8 @@ async function performHealthCheck() {
       status: dbStatus,
       message: dbStatus === 'healthy' ? `DB reachable (${elapsed}ms)` : `DB slow (${elapsed}ms)`
     })
-  } catch (error: any) {
-    const isNativeModuleError = error?.code === 'ERR_DLOPEN_FAILED' || /NODE_MODULE_VERSION/.test(error?.message || '')
+  } catch (error) {
+    const isNativeModuleError = (error as NodeJS.ErrnoException).code === 'ERR_DLOPEN_FAILED' || /NODE_MODULE_VERSION/.test((error instanceof Error ? error.message : String(error)) || '')
     health.checks.push({
       name: 'Database',
       status: 'unhealthy',

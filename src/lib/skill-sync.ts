@@ -203,8 +203,8 @@ export async function syncSkillsFromDisk(): Promise<{ ok: boolean; message: stri
       logger.info(msg)
     }
     return { ok: true, message: msg }
-  } catch (err: any) {
+  } catch (err) {
     logger.error({ err }, 'Skill sync failed')
-    return { ok: false, message: `Skill sync failed: ${err.message}` }
+    return { ok: false, message: `Skill sync failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 }

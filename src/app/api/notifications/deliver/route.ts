@@ -145,12 +145,12 @@ export async function POST(request: NextRequest) {
           });
           deliveredCount++;
         }
-      } catch (error: any) {
+      } catch (error) {
         errorCount++;
         errors.push({
           notification_id: notification.id,
           recipient: notification.recipient,
-          error: error.message
+          error: error instanceof Error ? error.message : String(error)
         });
         
         logger.error({ err: error, notificationId: notification.id, recipient: notification.recipient }, 'Failed to deliver notification');

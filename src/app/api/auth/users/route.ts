@@ -67,8 +67,8 @@ export async function POST(request: NextRequest) {
         tenant_id: newUser.tenant_id ?? 1,
       }
     }, { status: 201 })
-  } catch (error: any) {
-    if (error.message?.includes('UNIQUE constraint failed')) {
+  } catch (error) {
+    if (error instanceof Error && error.message?.includes('UNIQUE constraint failed')) {
       return NextResponse.json({ error: 'Username already exists' }, { status: 409 })
     }
     logger.error({ err: error }, 'POST /api/auth/users error')

@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, reply })
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, 'POST /api/sessions/continue error')
-    return NextResponse.json({ error: error?.message || 'Failed to continue session' }, { status: 500 })
+    return NextResponse.json({ error: (error instanceof Error ? error.message : String(error)) || 'Failed to continue session' }, { status: 500 })
   }
 }
 

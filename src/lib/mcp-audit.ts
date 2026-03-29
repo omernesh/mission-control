@@ -10,7 +10,7 @@ import { getDatabase } from '@/lib/db'
 export interface McpCallInput {
   agentName?: string
   mcpServer?: string
-  toolName?: string
+  toolName: string
   success?: boolean
   durationMs?: number
   error?: string
@@ -33,6 +33,22 @@ export interface McpCallStats {
   }>
 }
 
+interface McpCallTotalsRow {
+  total: number
+  successes: number
+  failures: number
+  avg_duration: number | null
+}
+
+interface McpCallBreakdownRow {
+  tool_name: string | null
+  mcp_server: string | null
+  calls: number
+  successes: number
+  failures: number
+  avg_duration: number | null
+}
+
 export function logMcpCall(input: McpCallInput): number {
   const db = getDatabase()
   const result = db.prepare(`
@@ -41,13 +57,14 @@ export function logMcpCall(input: McpCallInput): number {
   `).run(
     input.agentName ?? null,
     input.mcpServer ?? null,
-    input.toolName ?? null,
+    input.toolName,
     input.success !== false ? 1 : 0,
     input.durationMs ?? null,
     input.error ?? null,
     input.workspaceId ?? 1,
   )
-  return result.lastInsertRowid as number
+  const rowid = result.lastInsertRowid
+  return typeof rowid === 'bigint' ? Number(rowid) : rowid
 }
 
 export interface McpLatencyPercentiles {
@@ -63,6 +80,12 @@ export interface McpLatencyPercentiles {
     p99: number
     calls: number
   }>
+}
+
+interface McpDurationRow {
+  duration_ms: number
+  tool_name: string | null
+  mcp_server: string | null
 }
 
 function computePercentile(sorted: number[], pct: number): number {
@@ -84,7 +107,7 @@ export function getMcpLatencyPercentiles(
     WHERE workspace_id = ? AND created_at > ? AND duration_ms IS NOT NULL
     ORDER BY duration_ms ASC
     LIMIT 10000
-  `).all(workspaceId, since) as Array<{ duration_ms: number; tool_name: string | null; mcp_server: string | null }>
+  `).all(workspaceId, since) as McpDurationRow[]
 
   if (rows.length === 0) {
     return { p50: 0, p95: 0, p99: 0, sampleSize: 0, perTool: [] }
@@ -145,7 +168,7 @@ export function getMcpCallStats(
       AVG(duration_ms) as avg_duration
     FROM mcp_call_log
     WHERE agent_name = ? AND workspace_id = ? AND created_at > ?
-  `).get(agentName, workspaceId, since) as any
+  `).get(agentName, workspaceId, since) as McpCallTotalsRow | undefined
 
   const breakdown = db.prepare(`
     SELECT
@@ -160,7 +183,7 @@ export function getMcpCallStats(
     GROUP BY tool_name, mcp_server
     ORDER BY calls DESC
     LIMIT 10000
-  `).all(agentName, workspaceId, since) as any[]
+  `).all(agentName, workspaceId, since) as McpCallBreakdownRow[]
 
   const total = totals?.total ?? 0
   const successCount = totals?.successes ?? 0
@@ -172,7 +195,7 @@ export function getMcpCallStats(
     failureCount,
     successRate: total > 0 ? Math.round((successCount / total) * 10000) / 100 : 100,
     avgDurationMs: Math.round(totals?.avg_duration ?? 0),
-    toolBreakdown: breakdown.map((row: any) => ({
+    toolBreakdown: breakdown.map((row) => ({
       toolName: row.tool_name ?? 'unknown',
       mcpServer: row.mcp_server ?? 'unknown',
       calls: row.calls,

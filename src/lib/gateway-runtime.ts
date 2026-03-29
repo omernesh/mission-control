@@ -58,10 +58,11 @@ export function registerMcAsDashboard(mcUrl: string): { registered: boolean; alr
     fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2) + '\n')
     logger.info({ origin }, 'Registered MC origin in gateway config')
     return { registered: true, alreadySet: false }
-  } catch (err: any) {
+  } catch (err) {
     // Read-only filesystem (e.g. Docker read_only: true, or intentional mount) —
     // treat as a non-fatal skip rather than an error.
-    if (err?.code === 'EROFS' || err?.code === 'EACCES' || err?.code === 'EPERM') {
+    const errCode = (err as NodeJS.ErrnoException).code
+    if (errCode === 'EROFS' || errCode === 'EACCES' || errCode === 'EPERM') {
       logger.warn(
         { err, configPath },
         'Gateway config is read-only — skipping MC origin registration. ' +

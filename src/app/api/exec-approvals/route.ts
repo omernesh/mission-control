@@ -48,9 +48,9 @@ export async function GET(request: NextRequest) {
 
     const data = await res.json()
     return NextResponse.json(data)
-  } catch (err: any) {
+  } catch (err) {
     clearTimeout(timeout)
-    if (err.name === 'AbortError') {
+    if ((err instanceof Error ? err.name : undefined) === 'AbortError') {
       logger.warn('Gateway exec-approvals request timed out')
     } else {
       logger.warn({ err }, 'Gateway exec-approvals unreachable')
@@ -77,12 +77,12 @@ async function getAllowlist(): Promise<NextResponse> {
       }
     }
     return NextResponse.json({ agents, hash: computeHash(raw) })
-  } catch (err: any) {
-    if (err.code === 'ENOENT') {
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return NextResponse.json({ agents: {}, hash: computeHash('') })
     }
     logger.warn({ err }, 'Failed to read exec-approvals config')
-    return NextResponse.json({ error: `Failed to read config: ${err.message}` }, { status: 500 })
+    return NextResponse.json({ error: `Failed to read config: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
   }
 }
 
@@ -124,8 +124,8 @@ export async function PUT(request: NextRequest) {
           )
         }
       }
-    } catch (err: any) {
-      if (err.code !== 'ENOENT') throw err
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
     }
 
     if (!parsed.agents) parsed.agents = {}
@@ -150,9 +150,9 @@ export async function PUT(request: NextRequest) {
     await writeFile(filePath, newRaw, { mode: 0o600 })
 
     return NextResponse.json({ ok: true, hash: computeHash(newRaw) })
-  } catch (err: any) {
+  } catch (err) {
     logger.error({ err }, 'Failed to save exec-approvals config')
-    return NextResponse.json({ error: `Failed to save: ${err.message}` }, { status: 500 })
+    return NextResponse.json({ error: `Failed to save: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
   }
 }
 
@@ -198,9 +198,9 @@ export async function POST(request: NextRequest) {
 
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
-  } catch (err: any) {
+  } catch (err) {
     clearTimeout(timeout)
-    if (err.name === 'AbortError') {
+    if ((err instanceof Error ? err.name : undefined) === 'AbortError') {
       logger.error('Gateway exec-approvals respond request timed out')
       return NextResponse.json({ error: 'Gateway request timed out' }, { status: 504 })
     }

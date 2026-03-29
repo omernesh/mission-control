@@ -686,15 +686,15 @@ export function AgentSquadPanelPhase3() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
                           <h3 className="font-semibold text-foreground truncate">{agent.name}</h3>
-                          {(agent as any).source && (agent as any).source !== 'manual' && (
+                          {agent.source && agent.source !== 'manual' && (
                             <span className={`text-2xs px-1.5 py-0.5 rounded-full border ${
-                              (agent as any).source === 'local'
+                              agent.source === 'local'
                                 ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
-                                : (agent as any).source === 'gateway'
+                                : agent.source === 'gateway'
                                   ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
                                   : 'bg-slate-500/15 text-slate-300 border-slate-500/30'
                             }`}>
-                              {(agent as any).source}
+                              {agent.source}
                             </span>
                           )}
                         </div>
@@ -844,7 +844,7 @@ function AgentDetailModalPhase3({
   onWakeAgent: (name: string, sessionKey: string) => Promise<void>
   onDelete: (agentId: number, removeWorkspace: boolean) => Promise<void>
 }) {
-  const [agentState, setAgentState] = useState<Agent & { config?: any; working_memory?: string }>(agent as Agent & { config?: any; working_memory?: string })
+  const [agentState, setAgentState] = useState<Agent>(agent)
   const [activeTab, setActiveTab] = useState<'overview' | 'soul' | 'memory' | 'config' | 'tasks' | 'activity' | 'files' | 'tools' | 'channels' | 'cron' | 'models' | 'evals'>('overview')
   const [editing, setEditing] = useState(false)
   const [formData, setFormData] = useState({
@@ -852,7 +852,7 @@ function AgentDetailModalPhase3({
     session_key: agent.session_key || '',
     soul_content: agent.soul_content || '',
     working_memory: agent.working_memory || '',
-    model: (() => { const p = (agent as any).config?.model?.primary; return (typeof p === 'string' ? p : p?.primary) || '' })(),
+    model: (typeof agent.config?.model?.primary === 'string' ? agent.config.model.primary : '') || '',
   })
   const [workspaceFiles, setWorkspaceFiles] = useState<{ identityMd: string; agentMd: string }>({
     identityMd: '',
@@ -886,8 +886,8 @@ function AgentDetailModalPhase3({
       role: agent.role,
       session_key: agent.session_key || '',
       soul_content: agent.soul_content || '',
-      working_memory: (agent as any).working_memory || '',
-      model: (() => { const p = (agent as any).config?.model?.primary; return (typeof p === 'string' ? p : p?.primary) || '' })(),
+      working_memory: agent.working_memory || '',
+      model: (typeof agent.config?.model?.primary === 'string' ? agent.config.model.primary : '') || '',
     })
   }, [agent])
 
@@ -904,13 +904,13 @@ function AgentDetailModalPhase3({
         if (agentRes.ok) {
           const payload = await agentRes.json()
           if (payload?.agent) {
-            const freshAgent = payload.agent as Agent & { config?: any; working_memory?: string }
+            const freshAgent = payload.agent as Agent
             setAgentState((prev) => ({ ...prev, ...freshAgent }))
             setFormData((prev) => ({
               ...prev,
               role: freshAgent.role || prev.role,
               session_key: freshAgent.session_key || '',
-              model: (freshAgent as any).config?.model?.primary || prev.model,
+              model: (typeof freshAgent.config?.model?.primary === 'string' ? freshAgent.config.model.primary : '') || prev.model,
             }))
           }
         }
@@ -1096,7 +1096,7 @@ function AgentDetailModalPhase3({
       await onDelete(agentState.id, removeWorkspace)
       onClose()
     } catch (error) {
-      setDeleteError(error?.message || `Failed to delete ${scope}`)
+      setDeleteError((error instanceof Error ? error.message : String(error)) || `Failed to delete ${scope}`)
     } finally {
       setDeleteBusy(false)
     }

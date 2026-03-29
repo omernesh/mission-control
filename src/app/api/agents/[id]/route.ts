@@ -121,14 +121,14 @@ export async function PUT(
 
       values.push(agent.id, workspaceId)
       db.prepare(`UPDATE agents SET ${fields.join(', ')} WHERE id = ? AND workspace_id = ?`).run(...values)
-    } catch (err: any) {
-      return NextResponse.json({ error: `Save failed: ${err.message}` }, { status: 500 })
+    } catch (err) {
+      return NextResponse.json({ error: `Save failed: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
     }
 
     if (shouldWriteToGateway) {
       try {
         await writeAgentToConfig(getWriteBackPayload(gateway_config))
-      } catch (err: any) {
+      } catch (err) {
         // Gateway write failed — revert DB to previous state
         try {
           const revertFields: string[] = ['updated_at = ?']
@@ -139,11 +139,11 @@ export async function PUT(
           revertValues.push(agent.config || '{}')
           revertValues.push(agent.id, workspaceId)
           db.prepare(`UPDATE agents SET ${revertFields.join(', ')} WHERE id = ? AND workspace_id = ?`).run(...revertValues)
-        } catch (revertErr: any) {
+        } catch (revertErr) {
           logger.error({ err: revertErr, agent: agent.name }, 'Failed to revert DB after gateway write failure')
         }
         return NextResponse.json(
-          { error: `Save failed: unable to update gateway config: ${err.message}` },
+          { error: `Save failed: unable to update gateway config: ${err instanceof Error ? err.message : String(err)}` },
           { status: 502 }
         )
       }
@@ -187,9 +187,9 @@ export async function PUT(
       success: true,
       agent: { ...agent, config: enrichedConfig, role: role || agent.role, updated_at: now },
     })
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, 'PUT /api/agents/[id] error')
-    return NextResponse.json({ error: error.message || 'Failed to update agent' }, { status: 500 })
+    return NextResponse.json({ error: (error instanceof Error ? error.message : String(error)) || 'Failed to update agent' }, { status: 500 })
   }
 }
 
@@ -235,10 +235,10 @@ export async function DELETE(
           .replace(/^-+|-+$/g, '') || agent.name
       try {
         await runOpenClaw(['agents', 'delete', openclawId, '--force'], { timeoutMs: 30000 })
-      } catch (err: any) {
+      } catch (err) {
         logger.error({ err, openclawId, agent: agent.name }, 'Failed to remove OpenClaw agent/workspace')
         return NextResponse.json(
-          { error: `Failed to remove OpenClaw workspace for ${agent.name}: ${err?.message || 'unknown error'}` },
+          { error: `Failed to remove OpenClaw workspace for ${agent.name}: ${(err instanceof Error ? err.message : String(err)) || 'unknown error'}` },
           { status: 502 }
         )
       }
@@ -253,8 +253,8 @@ export async function DELETE(
           .replace(/[^a-z0-9._-]+/g, '-')
           .replace(/^-+|-+$/g, '') || agent.name
       await removeAgentFromConfig({ id: openclawId, name: agent.name })
-    } catch (err: any) {
-      configCleanupWarning = `OpenClaw config cleanup skipped for ${agent.name}: ${err?.message || 'unknown error'}`
+    } catch (err) {
+      configCleanupWarning = `OpenClaw config cleanup skipped for ${agent.name}: ${(err instanceof Error ? err.message : String(err)) || 'unknown error'}`
       logger.warn({ err, agent: agent.name }, 'Failed to remove OpenClaw agent config entry')
     }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Loader } from '@/components/ui/loader'
@@ -11,13 +11,17 @@ import { type WorkItem, type HeartbeatResponse, type SoulTemplate, statusColors,
 
 const log = createClientLogger('AgentDetailTabs')
 
+export interface AgentFormData {
+  role: string
+  model: string
+  session_key: string
+  soul_content: string
+  working_memory: string
+}
+
 function getAgentModelDisplay(agent: Agent): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const p = (agent as any).config?.model?.primary
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const m = (agent as any).model
-  const v = typeof p === 'string' ? p : p?.primary
-  return v || (typeof m === 'string' ? m : m?.primary) || ''
+  const p = agent.config?.model?.primary
+  return (typeof p === 'string' ? p : '') || ''
 }
 
 // Overview Tab Component
@@ -38,8 +42,8 @@ export function OverviewTab({
 }: {
   agent: Agent
   editing: boolean
-  formData: any
-  setFormData: (data: any) => void
+  formData: AgentFormData
+  setFormData: React.Dispatch<React.SetStateAction<AgentFormData>>
   onSave: () => Promise<void>
   saveBusy?: boolean
   onStatusUpdate: (name: string, status: Agent['status'], activity?: string) => Promise<void>
@@ -147,7 +151,7 @@ export function OverviewTab({
                 <input
                   type="text"
                   value={formData.role}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, role: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value }))}
                   className="bg-surface-1 text-foreground border border-border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                 />
               ) : (
@@ -160,7 +164,7 @@ export function OverviewTab({
               {editing ? (
                 <select
                   value={formData.model || ''}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, model: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, model: e.target.value }))}
                   className="bg-surface-1 text-foreground border border-border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                 >
                   <option value="">{t('default')}</option>
@@ -181,7 +185,7 @@ export function OverviewTab({
                 <input
                   type="text"
                   value={formData.session_key}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, session_key: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, session_key: e.target.value }))}
                   className="bg-surface-1 text-foreground border border-border rounded px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
                   placeholder={t('sessionKeyPlaceholder')}
                 />
@@ -1473,7 +1477,7 @@ export function ConfigTab({
     try {
       await onSaveWorkspaceFile(file, content)
     } catch (err) {
-      setError(err?.message || `Failed to save ${file}`)
+      setError((err instanceof Error ? err.message : String(err)) || `Failed to save ${file}`)
     } finally {
       if (file === 'identity.md') {
         setSavingIdentityMd(false)
@@ -2284,7 +2288,7 @@ export function FilesTab({ agent }: { agent: Agent }) {
 
 export function ToolsTab({ agent }: { agent: Agent }) {
   const t = useTranslations('agentDetail')
-  const agentConfig = (agent as any).config || {}
+  const agentConfig = agent.config || {}
   const tools = agentConfig.tools || {}
   const toolAllow = Array.isArray(tools.allow) ? tools.allow : []
   const toolDeny = Array.isArray(tools.deny) ? tools.deny : []
@@ -2721,7 +2725,7 @@ export function CronTab({ agent }: { agent: Agent }) {
 
 export function ModelsTab({ agent }: { agent: Agent }) {
   const t = useTranslations('agentDetail')
-  const agentConfig = (agent as any).config || {}
+  const agentConfig = agent.config || {}
   const modelCfg = agentConfig.model || {}
   const modelPrimary = typeof modelCfg === 'string' ? modelCfg : (modelCfg.primary || '')
   const modelFallbacks: string[] = Array.isArray(modelCfg.fallbacks) ? modelCfg.fallbacks : []

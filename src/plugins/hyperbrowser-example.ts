@@ -41,8 +41,8 @@ export function initHyperbrowserPlugin(): void {
           return res.ok
             ? { ok: true, detail: 'API key valid' }
             : { ok: false, detail: `HTTP ${res.status}` }
-        } catch (err: any) {
-          return { ok: false, detail: err.message || 'Connection failed' }
+        } catch (err) {
+          return { ok: false, detail: (err instanceof Error ? err.message : String(err)) || 'Connection failed' }
         }
       },
     },

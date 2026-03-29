@@ -121,9 +121,9 @@ export async function POST(request: NextRequest) {
     )
 
     return NextResponse.json({ success: true, action, sessionKey, result })
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, 'Session POST error')
-    return NextResponse.json({ error: error.message || 'Session action failed' }, { status: 500 })
+    return NextResponse.json({ error: (error instanceof Error ? error.message : String(error)) || 'Session action failed' }, { status: 500 })
   }
 }
 
@@ -154,9 +154,9 @@ export async function DELETE(request: NextRequest) {
     )
 
     return NextResponse.json({ success: true, sessionKey, result })
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, 'Session DELETE error')
-    return NextResponse.json({ error: error.message || 'Session deletion failed' }, { status: 500 })
+    return NextResponse.json({ error: (error instanceof Error ? error.message : String(error)) || 'Session deletion failed' }, { status: 500 })
   }
 }
 

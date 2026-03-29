@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
       .prepare('SELECT * FROM alert_rules WHERE id = ? AND workspace_id = ?')
       .get(result.lastInsertRowid, workspaceId) as AlertRule
     return NextResponse.json({ rule }, { status: 201 })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed to create rule' }, { status: 500 })
+  } catch (err) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Failed to create rule' }, { status: 500 })
   }
 }
 

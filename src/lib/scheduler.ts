@@ -86,8 +86,8 @@ async function runBackup(): Promise<{ ok: boolean; message: string }> {
 
     const sizeKB = Math.round(stat.size / 1024)
     return { ok: true, message: `Backup created (${sizeKB}KB)` }
-  } catch (err: any) {
-    return { ok: false, message: `Backup failed: ${err.message}` }
+  } catch (err) {
+    return { ok: false, message: `Backup failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 }
 
@@ -150,8 +150,8 @@ async function runCleanup(): Promise<{ ok: boolean; message: string }> {
     }
 
     return { ok: true, message: `Cleaned ${totalDeleted} stale record${totalDeleted === 1 ? '' : 's'}` }
-  } catch (err: any) {
-    return { ok: false, message: `Cleanup failed: ${err.message}` }
+  } catch (err) {
+    return { ok: false, message: `Cleanup failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 }
 
@@ -208,8 +208,8 @@ async function runHeartbeatCheck(): Promise<{ ok: boolean; message: string }> {
     })
 
     return { ok: true, message: `Marked ${staleAgents.length} agent(s) offline: ${names.join(', ')}` }
-  } catch (err: any) {
-    return { ok: false, message: `Heartbeat check failed: ${err.message}` }
+  } catch (err) {
+    return { ok: false, message: `Heartbeat check failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 }
 
@@ -459,8 +459,8 @@ async function tick() {
         : id === 'stale_task_requeue' ? await requeueStaleTasks()
         : await runCleanup()
       task.lastResult = { ...result, timestamp: now }
-    } catch (err: any) {
-      task.lastResult = { ok: false, message: err.message, timestamp: now }
+    } catch (err) {
+      task.lastResult = { ok: false, message: err instanceof Error ? err.message : String(err), timestamp: now }
     } finally {
       task.running = false
       task.lastRun = now

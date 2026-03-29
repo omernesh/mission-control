@@ -400,7 +400,7 @@ export function useWebSocket() {
 
     // Handle pong responses (any response to a ping ID counts — even errors prove the connection is alive)
     if (frame.type === 'res' && frame.id?.startsWith('ping-')) {
-      const rawPingError = frame.error?.message || JSON.stringify(frame.error || '')
+      const rawPingError = (typeof frame.error === 'string' ? frame.error : JSON.stringify(frame.error)) || ''
       if (!frame.ok && /unknown method:\s*ping/i.test(rawPingError)) {
         gatewaySupportsPingRef.current = false
         missedPongsRef.current = 0
@@ -413,8 +413,8 @@ export function useWebSocket() {
 
     // Handle connect error
     if (frame.type === 'res' && !frame.ok) {
-      log.error(`Gateway error: ${frame.error?.message || JSON.stringify(frame.error)}`)
-      const rawMessage = frame.error?.message || JSON.stringify(frame.error)
+      const rawMessage = (typeof frame.error === 'string' ? frame.error : JSON.stringify(frame.error)) || ''
+      log.error(`Gateway error: ${rawMessage}`)
       const help = getGatewayErrorHelp(rawMessage)
       const shouldFallbackToTokenOnly = shouldRetryWithoutDeviceIdentity(
         rawMessage,

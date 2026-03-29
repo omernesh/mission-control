@@ -127,11 +127,11 @@ export async function POST(request: NextRequest) {
 
     const gw = db.prepare('SELECT * FROM gateways WHERE id = ?').get(result.lastInsertRowid) as GatewayEntry
     return NextResponse.json({ gateway: redactToken(gw), agents_registered: agentsRegistered }, { status: 201 })
-  } catch (err: any) {
-    if (err.message?.includes('UNIQUE')) {
+  } catch (err) {
+    if (err instanceof Error && err.message?.includes('UNIQUE')) {
       return NextResponse.json({ error: 'A gateway with that name already exists' }, { status: 409 })
     }
-    return NextResponse.json({ error: err.message || 'Failed to add gateway' }, { status: 500 })
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Failed to add gateway' }, { status: 500 })
   }
 }
 

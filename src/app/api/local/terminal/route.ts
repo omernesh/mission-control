@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
   try {
     await runCommand('open', ['-a', 'Terminal', cwd], { timeoutMs: 10_000 })
     return NextResponse.json({ ok: true, message: `Opened Terminal at ${cwd}` })
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'Failed to open Terminal' }, { status: 500 })
+  } catch (error) {
+    return NextResponse.json({ error: (error instanceof Error ? error.message : String(error)) || 'Failed to open Terminal' }, { status: 500 })
   }
 }
 

@@ -230,7 +230,7 @@ function inferLocalRole(row: SessionAgentRow): string {
 }
 
 function isInactiveLocalSession(agent: Agent): boolean {
-  return Boolean((agent.config as any)?.localSession) && agent.status !== 'busy'
+  return Boolean(agent.config?.localSession) && agent.status !== 'busy'
 }
 
 const MAP_COLS = 24

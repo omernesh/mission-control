@@ -133,9 +133,9 @@ export function SkillsPanel() {
     async function run() {
       try {
         await loadSkills({ initial: true })
-      } catch (err: any) {
+      } catch (err) {
         if (!cancelled) {
-          setError(err?.message || 'Failed to load skills')
+          setError((err instanceof Error ? err.message : String(err)) || 'Failed to load skills')
           setLoading(false)
         }
       }
@@ -181,8 +181,8 @@ export function SkillsPanel() {
         const body = await res.json()
         if (!res.ok) throw new Error(body?.error || 'Failed to load SKILL.md')
         if (!cancelled) setSelectedContent(body as SkillContentResponse)
-      } catch (err: any) {
-        if (!cancelled) setDrawerError(err?.message || 'Failed to load SKILL.md')
+      } catch (err) {
+        if (!cancelled) setDrawerError((err instanceof Error ? err.message : String(err)) || 'Failed to load SKILL.md')
       } finally {
         if (!cancelled) setDrawerLoading(false)
       }
@@ -208,8 +208,8 @@ export function SkillsPanel() {
     setLoading(true)
     try {
       await loadSkills()
-    } catch (err: any) {
-      setError(err?.message || 'Failed to refresh skills')
+    } catch (err) {
+      setError((err instanceof Error ? err.message : String(err)) || 'Failed to refresh skills')
     } finally {
       setLoading(false)
     }
@@ -232,8 +232,8 @@ export function SkillsPanel() {
       if (!res.ok) throw new Error(body?.error || 'Failed to create skill')
       setCreateName('')
       await loadSkills()
-    } catch (err: any) {
-      setCreateError(err?.message || 'Failed to create skill')
+    } catch (err) {
+      setCreateError((err instanceof Error ? err.message : String(err)) || 'Failed to create skill')
     } finally {
       setSaving(false)
     }
@@ -257,8 +257,8 @@ export function SkillsPanel() {
       if (!res.ok) throw new Error(body?.error || 'Failed to save skill')
       await loadSkills()
       setSelectedContent((prev) => prev ? { ...prev, content: draftContent } : prev)
-    } catch (err: any) {
-      setDrawerError(err?.message || 'Failed to save skill')
+    } catch (err) {
+      setDrawerError((err instanceof Error ? err.message : String(err)) || 'Failed to save skill')
     } finally {
       setSaving(false)
     }
@@ -278,8 +278,8 @@ export function SkillsPanel() {
       setSelectedSkill(null)
       setSelectedContent(null)
       await loadSkills()
-    } catch (err: any) {
-      setDrawerError(err?.message || 'Failed to delete skill')
+    } catch (err) {
+      setDrawerError((err instanceof Error ? err.message : String(err)) || 'Failed to delete skill')
     } finally {
       setSaving(false)
     }
@@ -296,8 +296,8 @@ export function SkillsPanel() {
       if (!res.ok) throw new Error(body?.error || 'Search failed')
       setRegistryResults(body?.skills || [])
       setRegistrySearched(true)
-    } catch (err: any) {
-      setRegistryError(err?.message || 'Search failed')
+    } catch (err) {
+      setRegistryError((err instanceof Error ? err.message : String(err)) || 'Search failed')
     } finally {
       setRegistryLoading(false)
     }
@@ -334,8 +334,8 @@ export function SkillsPanel() {
         setInstallModal({ slug, name: displayName, step: 'done', message: body?.message || 'Installed successfully', securityStatus: body?.securityReport?.status })
         await loadSkills()
       }
-    } catch (err: any) {
-      setInstallModal({ slug, name: displayName, step: 'error', message: err?.message || 'Network error' })
+    } catch (err) {
+      setInstallModal({ slug, name: displayName, step: 'error', message: (err instanceof Error ? err.message : String(err)) || 'Network error' })
     } finally {
       setInstalling(null)
     }

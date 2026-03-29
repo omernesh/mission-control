@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
   try {
     // Launch the native app directly; pass deep-link as payload.
     await runCommand('open', ['-a', installPath!, launchUrl.toString()], { timeoutMs: 10_000 })
-  } catch (error: any) {
+  } catch (error) {
     try {
       // Fallback for apps registered as URL handlers.
       await runCommand('open', [launchUrl.toString()], { timeoutMs: 10_000 })
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         installed: true,
         launched: false,
-        error: fallbackError?.message || error?.message || 'Failed to launch Flight Deck app.',
+        error: fallbackError?.message || (error instanceof Error ? error.message : String(error)) || 'Failed to launch Flight Deck app.',
         fallbackUrl: webUrl.toString(),
         downloadUrl: DEFAULT_DOWNLOAD_URL,
       }, { status: 500 })

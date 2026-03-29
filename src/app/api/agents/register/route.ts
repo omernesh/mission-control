@@ -124,8 +124,8 @@ export async function POST(request: NextRequest) {
       registered: true,
       message: 'Agent registered successfully',
     }, { status: 201 })
-  } catch (error: any) {
-    if (error.message?.includes('UNIQUE constraint')) {
+  } catch (error) {
+    if (error instanceof Error && error.message?.includes('UNIQUE constraint')) {
       // Race condition — another request registered the same name
       return NextResponse.json({ error: 'Agent name already exists' }, { status: 409 })
     }

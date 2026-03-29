@@ -845,8 +845,8 @@ export async function executeProvisionJob(jobId: number, actor: string) {
       target_id: job.tenant_id,
       detail: { job_id: jobId, dry_run: dryRun, job_type: jobType },
     })
-  } catch (error: any) {
-    const message = error?.message || String(error)
+  } catch (error) {
+    const message = (error instanceof Error ? error.message : String(error)) || String(error)
 
     db.prepare(`
       UPDATE provision_jobs

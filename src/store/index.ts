@@ -131,6 +131,15 @@ export interface Task {
   github_pr_state?: string
 }
 
+export interface AgentConfig {
+  model?: { primary?: string; fallbacks?: string[] }
+  tools?: { allow?: string[]; deny?: string[]; alsoAllow?: string[]; profile?: string }
+  sandbox?: { mode?: 'all' | 'non-main'; workspaceAccess?: 'rw' | 'ro' | 'none'; scope?: string; docker?: { network?: 'none' | 'bridge' } }
+  identity?: { name?: string; theme?: string; emoji?: string }
+  localSession?: boolean | { sessionId: string; key: string; workingDir: string | null; kind: string }
+  [key: string]: JsonValue | undefined
+}
+
 export interface Agent {
   id: number
   name: string
@@ -144,7 +153,8 @@ export interface Agent {
   created_at: number
   updated_at: number
   hidden?: number
-  config?: JsonValue
+  config?: AgentConfig
+  source?: string
   taskStats?: {
     total: number
     assigned: number

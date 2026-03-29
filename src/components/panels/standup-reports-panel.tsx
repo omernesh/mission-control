@@ -11,7 +11,6 @@ interface StandupReportDto {
   actionItems?: string[]
   agentId?: string
   agentName?: string
-  [key: string]: unknown
 }
 
 interface StandupResponse {

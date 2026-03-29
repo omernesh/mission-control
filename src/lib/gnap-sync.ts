@@ -84,9 +84,12 @@ function git(repoPath: string, args: string[]): string {
       timeout: 15_000,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim()
-  } catch (err: any) {
-    const stderr = err.stderr?.toString?.() || ''
-    throw new Error(`git ${args[0]} failed: ${stderr || err.message}`)
+  } catch (err) {
+    const errObj = err as Record<string, unknown>
+    const stderr = typeof errObj.stderr === 'object' && errObj.stderr !== null && 'toString' in errObj.stderr
+      ? (errObj.stderr as { toString(): string }).toString()
+      : ''
+    throw new Error(`git ${args[0]} failed: ${stderr || (err instanceof Error ? err.message : String(err))}`)
   }
 }
 
@@ -261,8 +264,8 @@ export function syncGnap(repoPath: string): SyncResult {
   if (hasRemote(repoPath)) {
     try {
       git(repoPath, ['pull', '--rebase'])
-    } catch (err: any) {
-      result.errors.push(`Pull failed: ${err.message}`)
+    } catch (err) {
+      result.errors.push(`Pull failed: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -278,8 +281,8 @@ export function syncGnap(repoPath: string): SyncResult {
       git(repoPath, ['add', '.'])
       git(repoPath, ['commit', '-m', `Sync from Mission Control at ${result.lastSync}`])
       git(repoPath, ['push'])
-    } catch (err: any) {
-      result.errors.push(`Push failed: ${err.message}`)
+    } catch (err) {
+      result.errors.push(`Push failed: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

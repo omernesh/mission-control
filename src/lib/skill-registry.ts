@@ -238,8 +238,8 @@ async function fetchAwesomeIndex(): Promise<RegistrySkill[]> {
     const skills = parseAwesomeReadme(markdown)
     awesomeCache = { skills, fetchedAt: now }
     return skills
-  } catch (err: any) {
-    logger.warn({ err: err.message }, 'Awesome OpenClaw fetch error')
+  } catch (err) {
+    logger.warn({ err }, 'Awesome OpenClaw fetch error')
     if (awesomeCache) return awesomeCache.skills // stale fallback
     return []
   }
@@ -307,8 +307,8 @@ async function searchClawdHub(query: string): Promise<RegistrySearchResult> {
       if (skills.length > 0) {
         return { skills, total: data?.total || skills.length, source: 'clawhub' }
       }
-    } catch (err: any) {
-      logger.warn({ err: err.message, url }, 'ClawdHub search error')
+    } catch (err) {
+      logger.warn({ err, url }, 'ClawdHub search error')
     }
   }
 
@@ -352,8 +352,8 @@ async function searchSkillsSh(query: string): Promise<RegistrySearchResult> {
       if (skills.length > 0) {
         return { skills, total: data?.total || data?.count || skills.length, source: 'skills-sh' }
       }
-    } catch (err: any) {
-      logger.warn({ err: err.message, url }, 'skills.sh search error')
+    } catch (err) {
+      logger.warn({ err, url }, 'skills.sh search error')
     }
   }
 
@@ -435,8 +435,8 @@ export async function installFromRegistry(req: InstallRequest): Promise<InstallR
       const result = await fetchSkillsShSkill(req.slug)
       content = result.content
     }
-  } catch (err: any) {
-    return { ok: false, name, path: skillDir, message: `Fetch failed: ${err.message}` }
+  } catch (err) {
+    return { ok: false, name, path: skillDir, message: `Fetch failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 
   if (!content.trim()) {
@@ -472,8 +472,8 @@ export async function installFromRegistry(req: InstallRequest): Promise<InstallR
   try {
     await mkdir(skillDir, { recursive: true })
     await writeFile(skillDocPath, content, 'utf8')
-  } catch (err: any) {
-    return { ok: false, name, path: skillDir, message: `Write failed: ${err.message}` }
+  } catch (err) {
+    return { ok: false, name, path: skillDir, message: `Write failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 
   // Upsert into DB
@@ -508,7 +508,7 @@ export async function installFromRegistry(req: InstallRequest): Promise<InstallR
       now,
       now
     )
-  } catch (err: any) {
+  } catch (err) {
     logger.warn({ err }, 'Failed to upsert installed skill into DB')
   }
 

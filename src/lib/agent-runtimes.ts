@@ -267,7 +267,7 @@ export function startInstall(runtime: RuntimeId, mode: DeploymentMode): InstallJ
   const installFn = INSTALL_FNS[runtime] || installOpenClawLocal
   installFn(job).catch((err) => {
     job.status = 'failed'
-    job.error = String(err?.message || err)
+    job.error = String((err instanceof Error ? err.message : String(err)) || err)
     job.finishedAt = Date.now()
     logger.error({ err, runtime }, 'Agent runtime install failed')
   })
@@ -308,8 +308,8 @@ async function runInstallCmd(cmd: string, args: string[], job: InstallJob): Prom
     if (result.stdout) job.output += result.stdout + '\n'
     if (result.stderr) job.output += result.stderr + '\n'
     return result.code === 0
-  } catch (err: any) {
-    job.output += `> Error: ${err?.message || 'command not found'}\n`
+  } catch (err) {
+    job.output += `> Error: ${err instanceof Error ? err.message : 'command not found'}\n`
     return false
   }
 }
@@ -339,9 +339,9 @@ async function installOpenClawLocal(job: InstallJob): Promise<void> {
       job.error = `Install exited with code ${result.code}`
       job.output += `\n> Install failed (exit code ${result.code}).\n`
     }
-  } catch (err: any) {
+  } catch (err) {
     job.status = 'failed'
-    job.error = err?.message || 'Unknown error'
+    job.error = err instanceof Error ? err.message : 'Unknown error'
     job.output += `\n> Error: ${job.error}\n`
   }
   job.finishedAt = Date.now()
@@ -366,9 +366,9 @@ async function installHermesLocal(job: InstallJob): Promise<void> {
       job.error = `Installer exited with code ${result.code}`
       job.output += `\n> Install failed (exit code ${result.code}).\n`
     }
-  } catch (err: any) {
+  } catch (err) {
     job.status = 'failed'
-    job.error = err?.message || 'Unknown error'
+    job.error = err instanceof Error ? err.message : 'Unknown error'
     job.output += `\n> Error: ${job.error}\n`
   }
   job.finishedAt = Date.now()

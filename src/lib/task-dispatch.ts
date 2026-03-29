@@ -513,8 +513,8 @@ export async function runAegisReviews(): Promise<{ ok: boolean; message: string 
 
       results.push({ id: task.id, verdict: verdict.status })
       logger.info({ taskId: task.id, verdict: verdict.status }, 'Aegis review completed')
-    } catch (err: any) {
-      const errorMsg = err.message || 'Unknown error'
+    } catch (err) {
+      const errorMsg = (err instanceof Error ? err.message : String(err)) || 'Unknown error'
       logger.error({ taskId: task.id, err }, 'Aegis review failed')
 
       // Revert to review so it can be retried
@@ -817,8 +817,8 @@ export async function dispatchAssignedTasks(): Promise<{ ok: boolean; message: s
 
       results.push({ id: task.id, success: true })
       logger.info({ taskId: task.id, agent: task.agent_name }, 'Task dispatched and completed')
-    } catch (err: any) {
-      const errorMsg = err.message || 'Unknown error'
+    } catch (err) {
+      const errorMsg = (err instanceof Error ? err.message : String(err)) || 'Unknown error'
       logger.error({ taskId: task.id, agent: task.agent_name, err }, 'Task dispatch failed')
 
       // Increment dispatch_attempts and decide next status

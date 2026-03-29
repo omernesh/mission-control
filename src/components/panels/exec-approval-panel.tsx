@@ -194,8 +194,8 @@ function AllowlistEditor({ execApprovals }: { execApprovals: ExecApprovalRequest
       setAgents(data.agents ?? {})
       setHash(data.hash ?? '')
       setDirty(false)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load allowlist')
+    } catch (err) {
+      setError((err instanceof Error ? err.message : String(err)) || 'Failed to load allowlist')
     } finally {
       setLoading(false)
     }
@@ -218,8 +218,8 @@ function AllowlistEditor({ execApprovals }: { execApprovals: ExecApprovalRequest
       }
       setHash(data.hash ?? '')
       setDirty(false)
-    } catch (err: any) {
-      setError(err.message || 'Failed to save allowlist')
+    } catch (err) {
+      setError((err instanceof Error ? err.message : String(err)) || 'Failed to save allowlist')
     } finally {
       setSaving(false)
     }

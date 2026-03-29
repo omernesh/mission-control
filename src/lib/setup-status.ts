@@ -33,8 +33,8 @@ export async function fetchSetupStatusWithRetry(
         throw new Error('Invalid setup status response')
       }
       return data
-    } catch (error: any) {
-      if (error?.name === 'AbortError') {
+    } catch (error) {
+      if ((error instanceof Error ? error.name : undefined) === 'AbortError') {
         lastError = new Error('Setup status request timed out')
       } else {
         lastError = error instanceof Error ? error : new Error('Setup status request failed')

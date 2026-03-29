@@ -16,8 +16,8 @@ function getCommandDetail(error: unknown): { detail: string; code: number | null
   }
 
   return {
-    detail: [err?.stdout, err?.stderr, err?.message].filter(Boolean).join('\n').trim(),
-    code: typeof err?.code === 'number' ? err.code : null,
+    detail: [err?.stdout, err?.stderr, (err instanceof Error ? err.message : String(err))].filter(Boolean).join('\n').trim(),
+    code: typeof (err as NodeJS.ErrnoException).code === 'number' ? Number((err as NodeJS.ErrnoException).code) : null,
   }
 }
 

@@ -116,11 +116,11 @@ export async function POST(request: Request) {
       steps,
       restartRequired: true,
     })
-  } catch (err: any) {
+  } catch (err) {
     const message =
-      err?.stderr?.toString?.()?.trim() ||
-      err?.stdout?.toString?.()?.trim() ||
-      err?.message ||
+      (err as Record<string,unknown>).stderr?.toString?.()?.trim() ||
+      (err as Record<string,unknown>).stdout?.toString?.()?.trim() ||
+      (err instanceof Error ? err.message : String(err)) ||
       'Unknown error during update'
 
     return NextResponse.json(

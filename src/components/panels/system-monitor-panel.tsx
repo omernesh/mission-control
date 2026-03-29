@@ -153,8 +153,8 @@ export function SystemMonitorPanel() {
         const next = [...prevHistory, point]
         return next.length > MAX_POINTS ? next.slice(-MAX_POINTS) : next
       })
-    } catch (err: any) {
-      if (err.name !== 'AbortError') setError(err.message)
+    } catch (err) {
+      if (!(err instanceof Error) || err.name !== 'AbortError') setError(err instanceof Error ? err.message : String(err))
     }
   }, [])
 

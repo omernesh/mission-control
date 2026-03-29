@@ -54,11 +54,11 @@ export async function POST(request: Request) {
       newVersion: installedAfter,
       output: result.stdout,
     })
-  } catch (err: any) {
+  } catch (err) {
     const detail =
-      err?.stderr?.toString?.()?.trim() ||
-      err?.stdout?.toString?.()?.trim() ||
-      err?.message ||
+      (err as Record<string,unknown>).stderr?.toString?.()?.trim() ||
+      (err as Record<string,unknown>).stdout?.toString?.()?.trim() ||
+      (err instanceof Error ? err.message : String(err)) ||
       'Unknown error during OpenClaw update'
 
     logger.error({ err }, 'OpenClaw update failed')
