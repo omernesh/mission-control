@@ -629,6 +629,13 @@ export function TaskBoardPanel() {
         const data = await response.json().catch(() => ({}))
         throw new Error(data.error || 'Failed to update task status')
       }
+
+      // Fire-and-forget ACP writeback (best-effort, MC is source of truth)
+      fetch(`/api/claudios?action=task-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: draggedTask.id, newStatus }),
+      }).catch(() => { /* ACP sync is best-effort */ })
     } catch (err) {
       // Revert optimistic update via Zustand store
       updateTask(draggedTask.id, { status: previousStatus })
