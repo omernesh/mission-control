@@ -38,12 +38,21 @@ export function ingestClaudiosTokens(sessions: ClaudiosSessionData[]): number {
     const sessionId = `claudios:${session.id}`
     const model = session.model || 'unknown'
 
-    // Dedup check: skip if (session_id + model) already exists
+    // Upsert: update if row exists (token counts grow during a session), insert otherwise.
+    // MAX() ensures we never decrease counts if a stale event arrives out of order.
     const existing = db.prepare(
       'SELECT id FROM token_usage WHERE session_id = ? AND model = ? LIMIT 1'
     ).get(sessionId, model) as { id: number } | undefined | null
 
-    if (existing) continue
+    if (existing) {
+      db.prepare(`
+        UPDATE token_usage
+        SET input_tokens = MAX(input_tokens, ?), output_tokens = MAX(output_tokens, ?)
+        WHERE session_id = ? AND model = ?
+      `).run(inputTokens, outputTokens, sessionId, model)
+      // Don't increment inserted — this was an update, not a new row
+      continue
+    }
 
     // Insert new record
     const nowSec = Math.floor(Date.now() / 1000)

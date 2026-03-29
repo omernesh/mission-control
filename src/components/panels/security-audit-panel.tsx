@@ -218,6 +218,7 @@ export function SecurityAuditPanel() {
   const [data, setData] = useState<SecurityAuditData | null>(null)
   const [evalsData, setEvalsData] = useState<AgentEvalsData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -321,8 +322,9 @@ export function SecurityAuditPanel() {
         const evals = await evalsRes.json()
         setEvalsData(evals)
       }
-    } catch {
-      // Silent failure — data will remain stale
+    } catch (fetchErr) {
+      console.error('[security-audit] fetchData failed:', fetchErr)
+      setError('Failed to load security audit data')
     } finally {
       setIsLoading(false)
     }

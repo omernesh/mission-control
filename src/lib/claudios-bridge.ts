@@ -1,5 +1,27 @@
 import WebSocket from 'ws'
 import { eventBus } from '@/lib/event-bus'
+import type { db_helpers as DbHelpers } from '@/lib/db'
+import type { ingestClaudiosTokens as IngestFn } from '@/lib/token-ingest'
+
+// Cache dynamic imports at module level to avoid re-importing on every message
+let _dbHelpers: typeof DbHelpers | null = null
+let _ingestFn: typeof IngestFn | null = null
+
+async function getDbHelpers(): Promise<typeof DbHelpers> {
+  if (!_dbHelpers) {
+    const mod = await import('@/lib/db')
+    _dbHelpers = mod.db_helpers
+  }
+  return _dbHelpers
+}
+
+async function getIngestFn(): Promise<typeof IngestFn> {
+  if (!_ingestFn) {
+    const mod = await import('@/lib/token-ingest')
+    _ingestFn = mod.ingestClaudiosTokens
+  }
+  return _ingestFn
+}
 
 /**
  * Server-side WebSocket client that connects to WsHub :9877 as an observer.
@@ -36,6 +58,10 @@ export class ClaudiosBridge {
   }
 
   private _connect(url: string, psk: string): void {
+    if (this.ws) {
+      this.ws.removeAllListeners()
+      this.ws.close()
+    }
     this.ws = new WebSocket(url)
 
     this.ws.on('open', () => {
@@ -69,8 +95,8 @@ export class ClaudiosBridge {
 
           // Persist to activities table so events survive page refresh
           try {
-            const { db_helpers } = await import('@/lib/db')
-            db_helpers.logActivity(
+            const dbh = await getDbHelpers()
+            dbh.logActivity(
               typeOrChannel.replace('.', '_'),
               'system',
               0,
@@ -79,8 +105,8 @@ export class ClaudiosBridge {
               { source: 'claudios-wshub', channel: envelope.channel, payload: envelope.payload },
               1
             )
-          } catch {
-            // DB write failure must not break event forwarding
+          } catch (dbErr) {
+            console.warn('[claudios-bridge] DB write failed:', (dbErr as Error).message)
           }
 
           // Capture token data from session.* events in real-time
@@ -91,22 +117,22 @@ export class ClaudiosBridge {
             const totalTokens = Number(payload?.totalTokens ?? 0)
             if ((inputTokens > 0 || outputTokens > 0 || totalTokens > 0) && payload?.id) {
               try {
-                const { ingestClaudiosTokens } = await import('@/lib/token-ingest')
-                ingestClaudiosTokens([{
+                const ingest = await getIngestFn()
+                ingest([{
                   id: String(payload.id),
                   model: payload.model ? String(payload.model) : undefined,
                   inputTokens,
                   outputTokens,
                   status: payload.status ? String(payload.status) : undefined,
                 }])
-              } catch {
-                // Token ingest failure must not break event forwarding
+              } catch (ingestErr) {
+                console.warn('[claudios-bridge] Token ingest failed:', (ingestErr as Error).message)
               }
             }
           }
         }
-      } catch {
-        // Ignore malformed messages
+      } catch (parseErr) {
+        console.warn('[claudios-bridge] Malformed message dropped:', (parseErr as Error).message)
       }
     })
 
@@ -114,7 +140,8 @@ export class ClaudiosBridge {
       this._scheduleReconnect(url, psk)
     })
 
-    this.ws.on('error', () => {
+    this.ws.on('error', (wsErr) => {
+      console.warn('[claudios-bridge] WebSocket error:', (wsErr as Error).message)
       // Error always triggers close — let the close handler deal with reconnect
     })
   }
@@ -125,6 +152,7 @@ export class ClaudiosBridge {
     const delay = Math.min(1000 * Math.pow(2, this.attempts), 30000)
     this.attempts++
     this.reconnectTimer = setTimeout(() => this._connect(url, psk), delay)
+    this.reconnectTimer.unref()
   }
 }
 

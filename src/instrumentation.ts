@@ -124,25 +124,28 @@ export async function register() {
         }
       }
 
-      // Also fire adapter heartbeat for eventBus/SSE propagation (status_changed events)
-      await adapter.heartbeat({
-        agentId: 'claudios-orchestrator',
-        status: 'busy',
-      })
-
       console.log(`[claudios] Poll complete: ${sessions.length} sessions`)
     } catch (err) {
       console.error('[claudios] Poll error:', (err as Error).message)
     }
   }
 
-  // Run initial poll immediately, then every pollIntervalMs (default 10s)
-  poll()
-  const timer = setInterval(poll, claudiosConfig.pollIntervalMs)
+  // HMR guard: only register one polling loop per process lifetime
+  if (!(globalThis as any).__claudiosPolling) {
+    (globalThis as any).__claudiosPolling = true
 
-  // Cleanup on graceful shutdown
-  process.on('SIGTERM', () => {
-    clearInterval(timer)
-    claudiosBridge.stop()
-  })
+    // Run initial poll immediately, then every pollIntervalMs (default 10s)
+    poll()
+    const timer = setInterval(poll, claudiosConfig.pollIntervalMs)
+    // unref so the timer doesn't keep the process alive after all other work is done
+    timer.unref()
+
+    // Cleanup on graceful shutdown
+    const cleanup = () => {
+      clearInterval(timer)
+      claudiosBridge.stop()
+    }
+    process.on('SIGTERM', cleanup)
+    process.on('SIGINT', cleanup)
+  }
 }

@@ -69,7 +69,8 @@ export async function GET(request: NextRequest) {
         if (!res.ok) throw new Error(`Session Manager returned ${res.status}`)
         const data = await res.json()
         return NextResponse.json(data)
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=sessions:', err)
         return NextResponse.json({ sessions: [], error: 'Session Manager unreachable' })
       }
     }
@@ -104,7 +105,8 @@ export async function GET(request: NextRequest) {
         }))
 
         return NextResponse.json({ nodes: mapped })
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=metrics:', err)
         return NextResponse.json({ nodes: [], error: 'Claudios API unreachable' })
       }
     }
@@ -130,7 +132,8 @@ export async function GET(request: NextRequest) {
         )
 
         return NextResponse.json({ tasks })
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=tasks:', err)
         return NextResponse.json({ tasks: [], error: 'ACP unreachable' })
       }
     }
@@ -144,7 +147,8 @@ export async function GET(request: NextRequest) {
         const projects = projectsRes.ok ? await projectsRes.json() : { phases: [], state: null }
         const status = statusRes.ok ? await statusRes.json() : null
         return NextResponse.json({ projects, status })
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=gsd:', err)
         return NextResponse.json({
           projects: { phases: [], state: null },
           status: null,
@@ -192,7 +196,8 @@ export async function GET(request: NextRequest) {
 
         // timeline / clusters: pass through raw JSON
         return NextResponse.json(data)
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=memories:', err)
         return NextResponse.json({ nodes: [], edges: [], clusters: [], error: 'Claudios API unreachable' })
       }
     }
@@ -209,7 +214,8 @@ export async function GET(request: NextRequest) {
         })
         if (!res.ok) throw new Error(`Claudios API returned ${res.status}`)
         return NextResponse.json(await res.json())
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=standups:', err)
         return NextResponse.json({ reports: [], total: 0, error: 'Claudios API unreachable' })
       }
     }
@@ -223,7 +229,8 @@ export async function GET(request: NextRequest) {
         if (res.ok) {
           return NextResponse.json(await res.json())
         }
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=skills (api):', err)
         // Fall through to filesystem read
       }
 
@@ -249,7 +256,8 @@ export async function GET(request: NextRequest) {
             return { name: e.name, path: path.join(skillsDir, e.name), description }
           })
         return NextResponse.json({ skills, total: skills.length, source: 'filesystem' })
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=skills (filesystem):', err)
         return NextResponse.json({ skills: [], total: 0, error: 'Skills directory unreadable' })
       }
     }
@@ -278,7 +286,8 @@ export async function GET(request: NextRequest) {
           status: s.status,
         })))
         return NextResponse.json({ synced, total: sessions.length })
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=token-sync:', err)
         return NextResponse.json({ synced: 0, total: 0, error: 'Session Manager unreachable' })
       }
     }
@@ -318,7 +327,8 @@ export async function POST(request: NextRequest) {
         )
         if (!res.ok) throw new Error(`Claudios returned ${res.status}`)
         return NextResponse.json(await res.json())
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=command:', err)
         return NextResponse.json({ error: 'Command execution failed' }, { status: 502 })
       }
     }
@@ -339,7 +349,8 @@ export async function POST(request: NextRequest) {
         )
         if (!res.ok) throw new Error(`ACP returned ${res.status}`)
         return NextResponse.json({ ok: true, persisted: 'acp+mc' })
-      } catch {
+      } catch (err) {
+        console.error('[claudios] action=task-status:', err)
         return NextResponse.json({ ok: true, persisted: 'mc-only', warning: 'ACP unreachable' })
       }
     }

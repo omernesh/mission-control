@@ -98,7 +98,7 @@ const statusCardStyles: Record<string, { edge: string; glow: string; dot: string
 interface ClaudiosSession {
   id: string
   hostname: string
-  status: 'active' | 'idle' | 'stalled' | string
+  status: 'active' | 'idle' | 'stalled'
   nickname?: string
   project_id?: string
   last_activity?: number

@@ -83,6 +83,7 @@ export function getMcpLatencyPercentiles(
     FROM mcp_call_log
     WHERE workspace_id = ? AND created_at > ? AND duration_ms IS NOT NULL
     ORDER BY duration_ms ASC
+    LIMIT 10000
   `).all(workspaceId, since) as Array<{ duration_ms: number; tool_name: string | null; mcp_server: string | null }>
 
   if (rows.length === 0) {
@@ -158,6 +159,7 @@ export function getMcpCallStats(
     WHERE agent_name = ? AND workspace_id = ? AND created_at > ?
     GROUP BY tool_name, mcp_server
     ORDER BY calls DESC
+    LIMIT 10000
   `).all(agentName, workspaceId, since) as any[]
 
   const total = totals?.total ?? 0
