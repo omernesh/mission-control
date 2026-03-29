@@ -254,9 +254,38 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    case 'token-sync': {
+      try {
+        const res = await fetch(`${claudiosConfig.sessionManagerUrl}/sessions`, {
+          signal: AbortSignal.timeout(5000),
+        })
+        if (!res.ok) throw new Error(`Session Manager returned ${res.status}`)
+        const data = await res.json() as Array<{
+          id: string
+          model?: string
+          inputTokens?: number
+          outputTokens?: number
+          totalTokens?: number
+          status?: string
+        }>
+        const sessions = Array.isArray(data) ? data : []
+        const { ingestClaudiosTokens } = await import('@/lib/token-ingest')
+        const synced = ingestClaudiosTokens(sessions.map(s => ({
+          id: s.id,
+          model: s.model,
+          inputTokens: s.inputTokens,
+          outputTokens: s.outputTokens,
+          status: s.status,
+        })))
+        return NextResponse.json({ synced, total: sessions.length })
+      } catch {
+        return NextResponse.json({ synced: 0, total: 0, error: 'Session Manager unreachable' })
+      }
+    }
+
     default:
       return NextResponse.json(
-        { error: 'Unknown action. Use: sessions, metrics, tasks, gsd, memories, standups, skills' },
+        { error: 'Unknown action. Use: sessions, metrics, tasks, gsd, memories, standups, skills, token-sync' },
         { status: 400 }
       )
   }

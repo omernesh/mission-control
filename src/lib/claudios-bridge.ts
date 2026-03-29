@@ -82,6 +82,28 @@ export class ClaudiosBridge {
           } catch {
             // DB write failure must not break event forwarding
           }
+
+          // Capture token data from session.* events in real-time
+          if (typeOrChannel.startsWith('session.')) {
+            const payload = envelope.payload as Record<string, unknown> | null | undefined
+            const inputTokens = Number(payload?.inputTokens ?? 0)
+            const outputTokens = Number(payload?.outputTokens ?? 0)
+            const totalTokens = Number(payload?.totalTokens ?? 0)
+            if ((inputTokens > 0 || outputTokens > 0 || totalTokens > 0) && payload?.id) {
+              try {
+                const { ingestClaudiosTokens } = await import('@/lib/token-ingest')
+                ingestClaudiosTokens([{
+                  id: String(payload.id),
+                  model: payload.model ? String(payload.model) : undefined,
+                  inputTokens,
+                  outputTokens,
+                  status: payload.status ? String(payload.status) : undefined,
+                }])
+              } catch {
+                // Token ingest failure must not break event forwarding
+              }
+            }
+          }
         }
       } catch {
         // Ignore malformed messages

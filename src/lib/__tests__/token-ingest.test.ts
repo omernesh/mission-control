@@ -86,7 +86,7 @@ describe('ingestClaudiosTokens', () => {
     ingestClaudiosTokens(sessions)
 
     // The SELECT check should use "claudios:my-session-id" as the session_id
-    const selectArgs = mockGet.mock.calls[0]
+    const selectArgs = mockGet.mock.calls[0] as unknown[]
     expect(selectArgs[0]).toBe('claudios:my-session-id')
   })
 })
