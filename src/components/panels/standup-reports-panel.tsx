@@ -22,6 +22,7 @@ interface StandupResponse {
 }
 
 const PAGE_SIZE = 20
+const SEARCH_DEBOUNCE_MS = 300
 
 export function StandupReportsPanel() {
   const t = useTranslations('standupReports')
@@ -76,7 +77,7 @@ export function StandupReportsPanel() {
       setOffset(0)
       setExpandedId(null)
       fetchReports(query, 0, false)
-    }, 300)
+    }, SEARCH_DEBOUNCE_MS)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, fetchReports])
 
@@ -149,12 +150,9 @@ export function StandupReportsPanel() {
                     )}
                     <span className="text-sm text-foreground truncate">{report.summary}</span>
                   </div>
-                  <svg
-                    className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                  >
-                    <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <span className="text-muted-foreground shrink-0 text-xs leading-none">
+                    {isExpanded ? '▾' : '▸'}
+                  </span>
                 </div>
 
                 {/* Expanded content */}

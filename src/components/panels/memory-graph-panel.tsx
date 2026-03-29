@@ -41,6 +41,9 @@ interface TimelineEntry {
   memories: { id: string; label: string; type: string }[]
 }
 
+const GRAPH_LAYOUT_DELAY_MS = 800
+const GRAPH_FIT_DELAY_MS = 2500
+
 const memoryTheme: Theme = {
   canvas: { background: '#11111b', fog: '#11111b' },
   node: {
@@ -103,7 +106,8 @@ export function MemoryGraphPanel() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setTimelineData(data.entries || data.timeline || [])
-    } catch {
+    } catch (err) {
+      console.error('[memory-graph] Failed to load timeline:', err)
       setTimelineData([])
     } finally {
       setTimelineLoading(false)
@@ -118,7 +122,8 @@ export function MemoryGraphPanel() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setClustersData(data.clusters || [])
-    } catch {
+    } catch (err) {
+      console.error('[memory-graph] Failed to load clusters:', err)
       setClustersData([])
     } finally {
       setClustersLoading(false)
@@ -135,8 +140,8 @@ export function MemoryGraphPanel() {
   // Auto-fit graph after layout settles
   useEffect(() => {
     if (!graphData?.nodes.length) return
-    const t1 = setTimeout(() => graphRef.current?.fitNodesInView(undefined, { animated: false }), 800)
-    const t2 = setTimeout(() => graphRef.current?.fitNodesInView(undefined, { animated: false }), 2500)
+    const t1 = setTimeout(() => graphRef.current?.fitNodesInView(undefined, { animated: false }), GRAPH_LAYOUT_DELAY_MS)
+    const t2 = setTimeout(() => graphRef.current?.fitNodesInView(undefined, { animated: false }), GRAPH_FIT_DELAY_MS)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [graphData?.nodes.length])
 

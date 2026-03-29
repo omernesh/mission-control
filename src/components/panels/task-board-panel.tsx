@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useMissionControl } from '@/store'
+import { useMissionControl, type Agent } from '@/store'
 import { useSmartPoll } from '@/lib/use-smart-poll'
 
 import { createClientLogger } from '@/lib/client-logger'
@@ -46,18 +46,6 @@ interface Task {
   github_pr_state?: string
 }
 
-interface Agent {
-  id: number
-  name: string
-  role: string
-  status: 'offline' | 'idle' | 'busy' | 'error'
-  taskStats?: {
-    total: number
-    assigned: number
-    in_progress: number
-    completed: number
-  }
-}
 
 interface Comment {
   id: number
@@ -506,7 +494,7 @@ export function TaskBoardPanel() {
     fetch('/api/gnap')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setGnapStatus(data) })
-      .catch(() => {})
+      .catch(() => { console.warn('[task-board] GNAP status unavailable') })
   }, [])
 
   const handleGnapSync = useCallback(async () => {
@@ -635,7 +623,7 @@ export function TaskBoardPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId: draggedTask.id, newStatus }),
-      }).catch(() => { /* ACP sync is best-effort */ })
+      }).catch((err) => { console.warn('[task-board] ACP sync failed:', err) })
     } catch (err) {
       // Revert optimistic update via Zustand store
       updateTask(draggedTask.id, { status: previousStatus })
@@ -1753,8 +1741,8 @@ function TaskSessionFeed({ sessionId, agentName, isLive }: { sessionId: string; 
       const data = await res.json()
       setMessages(data.messages || [])
       setError(null)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load session transcript')
+    } catch (err) {
+      setError((err instanceof Error ? err.message : String(err)) || 'Failed to load session transcript')
     } finally {
       setLoading(false)
     }
@@ -1838,7 +1826,7 @@ function ClaudeCodeTasksSection() {
     fetch('/api/claude-tasks')
       .then(r => r.json())
       .then(d => { setData(d); setLoaded(true) })
-      .catch(() => setLoaded(true))
+      .catch((err) => { console.warn('[task-board] Claude tasks unavailable:', err); setLoaded(true) })
   }, [expanded, loaded])
 
   const tasksByTeam = data.tasks.reduce<Record<string, any[]>>((acc, t) => {
@@ -1920,7 +1908,7 @@ function HermesCronSection() {
     fetch('/api/hermes/tasks')
       .then(r => r.json())
       .then(d => { setData(d); setLoaded(true) })
-      .catch(() => setLoaded(true))
+      .catch((err) => { console.warn('[task-board] Hermes tasks unavailable:', err); setLoaded(true) })
   }, [expanded, loaded])
 
   return (

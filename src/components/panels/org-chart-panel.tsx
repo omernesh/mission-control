@@ -137,7 +137,8 @@ export function OrgChartPanel() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setSessions(data.sessions || [])
-    } catch {
+    } catch (err) {
+      console.error('[org-chart] Failed to load sessions:', err)
       setSessions([])
     } finally {
       setLoading(false)

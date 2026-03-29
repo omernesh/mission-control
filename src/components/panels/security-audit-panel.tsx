@@ -140,6 +140,8 @@ interface AgentEvalsData {
   driftAlerts: string[]
 }
 
+const POLL_INTERVAL_MS = 30_000
+
 const SCAN_STATUS_ICON: Record<string, string> = { pass: '+', fail: 'x', warn: '!' }
 const SCAN_STATUS_COLOR: Record<string, string> = { pass: 'text-green-400', fail: 'text-red-400', warn: 'text-amber-400' }
 
@@ -233,7 +235,7 @@ export function SecurityAuditPanel() {
         // but the panel expects authEvents to be an array of AuthEvent
         if (audit.authEvents && !Array.isArray(audit.authEvents)) {
           const events = audit.authEvents.recentEvents || []
-          audit.authEvents = events.map((e: any, i: number) => ({
+          audit.authEvents = events.map((e: { event_type?: string; agent_name?: string; ip_address?: string; created_at?: number; detail?: string }, i: number) => ({
             id: i,
             type: (e.event_type || '').replace('auth.', ''),
             actor: e.agent_name || 'unknown',
@@ -246,17 +248,17 @@ export function SecurityAuditPanel() {
         if (audit.agentTrust && !Array.isArray(audit.agentTrust)) {
           const agents = audit.agentTrust.agents || []
           const flaggedThreshold = 0.8
-          audit.agentTrust = agents.map((a: any, i: number) => ({
+          audit.agentTrust = agents.map((a: { name?: string; score?: number }, i: number) => ({
             agentId: i,
             name: a.name,
-            trustScore: a.score,
-            flagged: a.score < flaggedThreshold,
+            trustScore: a.score ?? 0,
+            flagged: (a.score ?? 0) < flaggedThreshold,
           }))
         }
         // secretExposures → secretAlerts
         if (audit.secretExposures && !audit.secretAlerts) {
           const recent = audit.secretExposures.recent || []
-          audit.secretAlerts = recent.map((e: any, i: number) => ({
+          audit.secretAlerts = recent.map((e: { detail?: string; event_type?: string; created_at?: number }, i: number) => ({
             id: i,
             file: e.detail || '',
             line: 0,
@@ -270,7 +272,7 @@ export function SecurityAuditPanel() {
         // mcpAudit → toolAudit + latency percentiles
         if (audit.mcpAudit && !audit.toolAudit) {
           const topTools = audit.mcpAudit.topTools || []
-          audit.toolAudit = topTools.map((t: any) => ({
+          audit.toolAudit = topTools.map((t: { name?: string; count?: number }) => ({
             tool: t.name,
             calls: t.count,
             successes: t.count,
@@ -285,7 +287,7 @@ export function SecurityAuditPanel() {
         // rateLimits: { totalHits, byIp } → RateLimitSignal[]
         if (audit.rateLimits && !Array.isArray(audit.rateLimits)) {
           const byIp = audit.rateLimits.byIp || []
-          audit.rateLimits = byIp.map((r: any) => ({
+          audit.rateLimits = byIp.map((r: { ip?: string; count?: number }) => ({
             ip: r.ip,
             hits: r.count,
             lastHit: 0,
@@ -294,7 +296,7 @@ export function SecurityAuditPanel() {
         // injectionAttempts: { total, recent } → InjectionAttempt[]
         if (audit.injectionAttempts && !Array.isArray(audit.injectionAttempts)) {
           const recent = audit.injectionAttempts.recent || []
-          audit.injectionAttempts = recent.map((e: any, i: number) => ({
+          audit.injectionAttempts = recent.map((e: { event_type?: string; agent_name?: string; ip_address?: string; detail?: string; created_at?: number }, i: number) => ({
             id: i,
             type: (e.event_type || '').replace('injection.', ''),
             source: e.agent_name || e.ip_address || 'unknown',
@@ -305,7 +307,7 @@ export function SecurityAuditPanel() {
         }
         // timeline: [{timestamp, eventCount, severity}] → [{timestamp, authEvents, ...}]
         if (Array.isArray(audit.timeline)) {
-          audit.timeline = audit.timeline.map((t: any) => ({
+          audit.timeline = audit.timeline.map((t: { timestamp?: number; eventCount?: number }) => ({
             timestamp: t.timestamp,
             authEvents: t.eventCount || 0,
             injectionAttempts: 0,
@@ -330,7 +332,7 @@ export function SecurityAuditPanel() {
     }
   }, [selectedTimeframe, setSecurityPosture])
 
-  useSmartPoll(fetchData, 30_000)
+  useSmartPoll(fetchData, POLL_INTERVAL_MS)
 
   const postureColor = (score: number) => {
     if (score >= 80) return 'text-green-400'
@@ -536,11 +538,7 @@ export function SecurityAuditPanel() {
             <h2 className="text-xl font-semibold mb-4">{t('secretExposureAlerts')}</h2>
             {data.secretAlerts.length === 0 ? (
               <div className="flex items-center gap-2 py-4 justify-center">
-                <svg className="w-5 h-5 text-green-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 1a5 5 0 015 5v2a2 2 0 01-2 2H5a2 2 0 01-2-2V6a5 5 0 015-5z" />
-                  <path d="M5.5 14h5M6.5 12v2M9.5 12v2" />
-                </svg>
-                <span className="text-sm font-medium text-green-400">{t('noSecretsDetected')}</span>
+                <span className="text-green-400 text-sm font-medium">✓ {t('noSecretsDetected')}</span>
               </div>
             ) : (
               <div className="overflow-x-auto max-h-48 overflow-y-auto">
@@ -687,11 +685,7 @@ export function SecurityAuditPanel() {
             <h2 className="text-xl font-semibold mb-4">{t('injectionAttempts')}</h2>
             {data.injectionAttempts.length === 0 ? (
               <div className="flex items-center gap-2 py-4 justify-center">
-                <svg className="w-5 h-5 text-green-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 1l6 3v4c0 3.5-2.5 6.5-6 7.5C4.5 14.5 2 11.5 2 8V4l6-3z" />
-                  <path d="M5.5 8l2 2 3.5-3.5" />
-                </svg>
-                <span className="text-sm font-medium text-green-400">{t('noInjectionAttempts')}</span>
+                <span className="text-green-400 text-sm font-medium">✓ {t('noInjectionAttempts')}</span>
               </div>
             ) : (
               <div className="overflow-x-auto max-h-48 overflow-y-auto">
@@ -785,10 +779,7 @@ export function SecurityAuditPanel() {
                     <div className="mt-2 space-y-1">
                       {evalsData.driftAlerts.map((alert, i) => (
                         <div key={i} className="text-xs text-red-400 flex items-center gap-1">
-                          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M8 1l7 14H1L8 1z" />
-                            <path d="M8 6v4M8 12v1" />
-                          </svg>
+                          <span>⚠</span>
                           {alert}
                         </div>
                       ))}
