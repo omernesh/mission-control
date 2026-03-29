@@ -1,0 +1,194 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
+import { ReactFlow, Node, Edge, useNodesState, useEdgesState, Controls, Background, BackgroundVariant } from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+
+interface Session {
+  id: string
+  hostname: string
+  status: string
+  nickname: string
+  project_id: string
+  last_activity: string
+}
+
+function statusColor(status: string): string {
+  switch (status?.toLowerCase()) {
+    case 'active': return '#22c55e'
+    case 'idle': return '#eab308'
+    case 'stalled': return '#ef4444'
+    default: return '#6b7280'
+  }
+}
+
+function buildOrgNodes(workers: Session[], t: ReturnType<typeof useTranslations>): { nodes: Node[]; edges: Edge[] } {
+  const staticNodes: Node[] = [
+    {
+      id: 'omer',
+      position: { x: 300, y: 0 },
+      data: { label: t('owner') },
+      type: 'input',
+      style: {
+        background: 'hsl(var(--primary) / 0.1)',
+        border: '1px solid hsl(var(--primary) / 0.4)',
+        color: 'hsl(var(--foreground))',
+        borderRadius: '8px',
+        padding: '8px 16px',
+        fontSize: '13px',
+        fontWeight: 600,
+      },
+    },
+    {
+      id: 'sammie',
+      position: { x: 300, y: 120 },
+      data: { label: t('chiefOfStaff') },
+      style: {
+        background: 'rgba(59, 130, 246, 0.1)',
+        border: '1px solid rgba(59, 130, 246, 0.4)',
+        color: 'hsl(var(--foreground))',
+        borderRadius: '8px',
+        padding: '8px 16px',
+        fontSize: '13px',
+        fontWeight: 500,
+      },
+    },
+    {
+      id: 'claudios',
+      position: { x: 300, y: 240 },
+      data: { label: t('vpRnd') },
+      style: {
+        background: 'rgba(168, 85, 247, 0.1)',
+        border: '1px solid rgba(168, 85, 247, 0.4)',
+        color: 'hsl(var(--foreground))',
+        borderRadius: '8px',
+        padding: '8px 16px',
+        fontSize: '13px',
+        fontWeight: 500,
+      },
+    },
+  ]
+
+  const workerCount = workers.length
+  const workerSpacing = 160
+  const totalWidth = Math.max(0, (workerCount - 1) * workerSpacing)
+  const startX = 300 - totalWidth / 2
+
+  const workerNodes: Node[] = workers.map((w, i) => ({
+    id: w.id,
+    position: { x: startX + i * workerSpacing, y: 380 },
+    data: { label: w.nickname || w.hostname || w.id.slice(0, 8) },
+    style: {
+      background: `${statusColor(w.status)}22`,
+      border: `1px solid ${statusColor(w.status)}66`,
+      color: 'hsl(var(--foreground))',
+      borderRadius: '8px',
+      padding: '6px 12px',
+      fontSize: '12px',
+    },
+  }))
+
+  const staticEdges: Edge[] = [
+    {
+      id: 'e-omer-sammie',
+      source: 'omer',
+      target: 'sammie',
+      animated: true,
+      style: { stroke: 'hsl(var(--border))', strokeWidth: 1.5 },
+    },
+    {
+      id: 'e-sammie-claudios',
+      source: 'sammie',
+      target: 'claudios',
+      animated: true,
+      style: { stroke: 'hsl(var(--border))', strokeWidth: 1.5 },
+    },
+  ]
+
+  const workerEdges: Edge[] = workers.map(w => ({
+    id: `e-claudios-${w.id}`,
+    source: 'claudios',
+    target: w.id,
+    animated: w.status?.toLowerCase() === 'active',
+    style: {
+      stroke: statusColor(w.status),
+      strokeWidth: 1.5,
+      opacity: 0.7,
+    },
+  }))
+
+  return {
+    nodes: [...staticNodes, ...workerNodes],
+    edges: [...staticEdges, ...workerEdges],
+  }
+}
+
+export function OrgChartPanel() {
+  const t = useTranslations('orgChart')
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [loading, setLoading] = useState(true)
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/claudios?action=sessions')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setSessions(data.sessions || [])
+    } catch {
+      setSessions([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchSessions() }, [fetchSessions])
+
+  useEffect(() => {
+    const { nodes: n, edges: e } = buildOrgNodes(sessions, t)
+    setNodes(n)
+    setEdges(e)
+  }, [sessions, t, setNodes, setEdges])
+
+  return (
+    <div className="m-4">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-foreground">{t('title')}</h2>
+        {!loading && (
+          <span className="text-xs text-muted-foreground">
+            {sessions.length === 0 ? t('noWorkers') : `${sessions.length} ${t('worker')}${sessions.length !== 1 ? 's' : ''}`}
+          </span>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-3 mb-3">
+        {(['active', 'idle', 'stalled'] as const).map(s => (
+          <div key={s} className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full" style={{ background: statusColor(s) }} />
+            <span className="text-xs text-muted-foreground capitalize">{t(s)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="rounded-lg border border-border overflow-hidden"
+        style={{ height: 'calc(100vh - 220px)', minHeight: 400 }}
+      >
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          fitView
+          attributionPosition="bottom-right"
+        >
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="hsl(var(--border))" />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </div>
+    </div>
+  )
+}
