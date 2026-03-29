@@ -2949,3 +2949,204 @@ export function ModelsTab({ agent }: { agent: Agent }) {
     </div>
   )
 }
+
+// ===== Evals Tab — Agent evaluation scores =====
+
+interface EvalLayer {
+  eval_layer: string
+  score: number
+  passed: number
+  detail: string
+  created_at: number
+}
+
+interface DriftMetric {
+  metric: string
+  drifted: boolean
+  delta: number
+}
+
+interface EvalsData {
+  agent: string
+  layers: EvalLayer[]
+  drift: {
+    hasDrift: boolean
+    metrics: DriftMetric[]
+  }
+}
+
+export function EvalsTab({ agent }: { agent: Agent }) {
+  const [data, setData] = useState<EvalsData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchEvals = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/agents/evals?agent=${encodeURIComponent(agent.name)}`)
+      if (res.ok) {
+        const json = await res.json()
+        setData(json)
+      } else {
+        const json = await res.json().catch(() => ({}))
+        setError(json.error || 'Failed to load eval data')
+      }
+    } catch {
+      setError('Network error loading evals')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const runEvals = async () => {
+    setRunning(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/agents/evals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'run', agent: agent.name }),
+      })
+      if (res.ok) {
+        await fetchEvals()
+      } else {
+        const json = await res.json().catch(() => ({}))
+        setError(json.error || 'Failed to run evals')
+      }
+    } catch {
+      setError('Network error running evals')
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchEvals()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent.name])
+
+  const layerColors: Record<string, string> = {
+    output: 'text-blue-400',
+    trace: 'text-purple-400',
+    component: 'text-cyan-400',
+    drift: 'text-amber-400',
+  }
+
+  return (
+    <div className="p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-lg font-medium text-foreground">Eval Scores</h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Agent quality scores across output, trace, component, and drift layers.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={fetchEvals}
+            disabled={loading || running}
+          >
+            Refresh
+          </Button>
+          <Button
+            size="xs"
+            onClick={runEvals}
+            disabled={loading || running}
+          >
+            {running ? 'Running...' : 'Run Evals'}
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader />
+        </div>
+      ) : !data || data.layers.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <p className="text-sm text-muted-foreground">No eval data yet.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Click &ldquo;Run Evals&rdquo; to generate scores for this agent.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Layer scores */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border">
+              <h5 className="text-sm font-medium text-foreground">Eval Layers</h5>
+            </div>
+            <div className="divide-y divide-border/50">
+              {data.layers.map((layer) => (
+                <div key={layer.eval_layer} className="px-4 py-3 flex items-center gap-3">
+                  <span className={`text-xs font-mono font-medium w-20 shrink-0 ${layerColors[layer.eval_layer] || 'text-muted-foreground'}`}>
+                    {layer.eval_layer}
+                  </span>
+                  {/* Score bar */}
+                  <div className="flex-1 min-w-0">
+                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${layer.passed ? 'bg-green-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(layer.score * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className={`text-xs font-mono shrink-0 w-12 text-right ${layer.passed ? 'text-green-400' : 'text-red-400'}`}>
+                    {Math.round(layer.score * 100)}%
+                  </span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${layer.passed ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                    {layer.passed ? 'pass' : 'fail'}
+                  </span>
+                  {layer.detail && (
+                    <span className="text-2xs text-muted-foreground/60 truncate max-w-[200px]" title={layer.detail}>
+                      {layer.detail}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Drift summary */}
+          {data.drift && data.drift.metrics.length > 0 && (
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                <h5 className="text-sm font-medium text-foreground">Drift Detection</h5>
+                <span className={`text-xs px-2 py-0.5 rounded ${data.drift.hasDrift ? 'bg-amber-500/10 text-amber-400' : 'bg-green-500/10 text-green-400'}`}>
+                  {data.drift.hasDrift ? 'drift detected' : 'stable'}
+                </span>
+              </div>
+              <div className="divide-y divide-border/50">
+                {data.drift.metrics.map((m) => (
+                  <div key={m.metric} className="px-4 py-2 flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-mono">{m.metric}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground/60">delta: {m.delta}</span>
+                      <span className={m.drifted ? 'text-amber-400' : 'text-green-400'}>
+                        {m.drifted ? 'drifted' : 'stable'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="text-2xs text-muted-foreground/50 text-right">
+            Last run: {data.layers[0] ? new Date(data.layers[0].created_at * 1000).toLocaleString() : '—'}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
