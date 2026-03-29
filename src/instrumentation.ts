@@ -42,8 +42,8 @@ export async function register() {
 
   // MC base URL for internal API calls — service runs on PORT (default 3001)
   const MC_BASE = `http://localhost:${process.env.PORT || 3001}`
-  // Internal auth header — matches AUTH_USER/AUTH_PASS set in NSSM env vars
-  const MC_AUTH = 'Basic ' + Buffer.from('admin:claudios-mc-local').toString('base64')
+  // Internal auth via x-api-key header (auth.ts does NOT support Basic scheme)
+  const MC_API_KEY = process.env.API_KEY || ''
 
   // 3. Polling loop — upserts each Claudios session as an individual agent row in SQLite.
   //
@@ -93,7 +93,7 @@ export async function register() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: MC_AUTH,
+              'x-api-key': MC_API_KEY,
             },
             body: JSON.stringify(agentPayload),
             signal: AbortSignal.timeout(3000),
@@ -105,7 +105,7 @@ export async function register() {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
-                Authorization: MC_AUTH,
+                'x-api-key': MC_API_KEY,
               },
               body: JSON.stringify({
                 name: agentName,
