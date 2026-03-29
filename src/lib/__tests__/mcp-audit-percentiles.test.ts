@@ -66,8 +66,8 @@ describe('getMcpLatencyPercentiles', () => {
     // The prepared statement should have been called with a timestamp in that range
     expect(mockPrepare).toHaveBeenCalled()
     // The second argument to all() should be a timestamp close to `since`
-    const callArgs = mockAll.mock.calls[0]
-    const passedSince = callArgs[1] as number
+    const callArgs = mockAll.mock.calls[0] as unknown as [number, number]
+    const passedSince = callArgs[1]
     expect(passedSince).toBeGreaterThanOrEqual(before - 1)
     expect(passedSince).toBeLessThanOrEqual(after + 1)
   })

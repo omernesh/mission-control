@@ -1289,7 +1289,16 @@
     "convergence": "Convergence:",
     "drift": "drift",
     "fixPrefix": "Fix: {fix}",
-    "issueCount": "{count, plural, one {# issue} other {# issues}}"
+    "issueCount": "{count, plural, one {# issue} other {# issues}}",
+    "latencyPercentiles": "MCP Latency Percentiles",
+    "noMcpCallsRecorded": "No MCP calls recorded",
+    "p50Label": "p50 (median)",
+    "p95Label": "p95",
+    "p99Label": "p99",
+    "sampleSize": "{count} calls sampled",
+    "colTool": "Tool",
+    "colServer": "Server",
+    "colCalls": "Calls"
   },
   "office": {
     "title": "Command Deck",

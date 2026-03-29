@@ -45,6 +45,21 @@ interface ToolAuditEntry {
   failures: number
 }
 
+interface McpLatencyPercentiles {
+  p50: number
+  p95: number
+  p99: number
+  sampleSize: number
+  perTool: Array<{
+    toolName: string
+    mcpServer: string
+    p50: number
+    p95: number
+    p99: number
+    calls: number
+  }>
+}
+
 interface RateLimitSignal {
   ip: string
   hits: number
@@ -116,6 +131,7 @@ interface SecurityAuditData {
   rateLimits: RateLimitSignal[]
   injectionAttempts: InjectionAttempt[]
   timeline: TimelinePoint[]
+  mcpLatencyPercentiles?: McpLatencyPercentiles
 }
 
 interface AgentEvalsData {
@@ -250,7 +266,7 @@ export function SecurityAuditPanel() {
           }))
         }
         if (!Array.isArray(audit.secretAlerts)) audit.secretAlerts = []
-        // mcpAudit → toolAudit
+        // mcpAudit → toolAudit + latency percentiles
         if (audit.mcpAudit && !audit.toolAudit) {
           const topTools = audit.mcpAudit.topTools || []
           audit.toolAudit = topTools.map((t: any) => ({
@@ -261,6 +277,10 @@ export function SecurityAuditPanel() {
           }))
         }
         if (!Array.isArray(audit.toolAudit)) audit.toolAudit = []
+        // Extract latency percentiles from mcpAudit
+        if (audit.mcpAudit?.latencyPercentiles) {
+          audit.mcpLatencyPercentiles = audit.mcpAudit.latencyPercentiles
+        }
         // rateLimits: { totalHits, byIp } → RateLimitSignal[]
         if (audit.rateLimits && !Array.isArray(audit.rateLimits)) {
           const byIp = audit.rateLimits.byIp || []
@@ -602,6 +622,62 @@ export function SecurityAuditPanel() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* MCP Latency Percentiles */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">{t('latencyPercentiles')}</h2>
+            {!data.mcpLatencyPercentiles || data.mcpLatencyPercentiles.sampleSize === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">{t('noMcpCallsRecorded')}</p>
+            ) : (
+              <div className="space-y-4">
+                {/* p50/p95/p99 stat boxes */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="border border-border/50 rounded-lg p-3 text-center">
+                    <div className="text-xs text-muted-foreground mb-1">{t('p50Label')}</div>
+                    <div className="text-xl font-bold tabular-nums text-green-400">{data.mcpLatencyPercentiles.p50}ms</div>
+                  </div>
+                  <div className="border border-border/50 rounded-lg p-3 text-center">
+                    <div className="text-xs text-muted-foreground mb-1">{t('p95Label')}</div>
+                    <div className="text-xl font-bold tabular-nums text-yellow-400">{data.mcpLatencyPercentiles.p95}ms</div>
+                  </div>
+                  <div className="border border-border/50 rounded-lg p-3 text-center">
+                    <div className="text-xs text-muted-foreground mb-1">{t('p99Label')}</div>
+                    <div className="text-xl font-bold tabular-nums text-orange-400">{data.mcpLatencyPercentiles.p99}ms</div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-right">{t('sampleSize', { count: data.mcpLatencyPercentiles.sampleSize })}</p>
+                {/* Per-tool breakdown */}
+                {data.mcpLatencyPercentiles.perTool.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-muted-foreground text-xs border-b border-border/50">
+                          <th className="pb-2 pr-3">{t('colTool')}</th>
+                          <th className="pb-2 pr-3">{t('colServer')}</th>
+                          <th className="pb-2 pr-3 tabular-nums">{t('p50Label')}</th>
+                          <th className="pb-2 pr-3 tabular-nums">{t('p95Label')}</th>
+                          <th className="pb-2 pr-3 tabular-nums">{t('p99Label')}</th>
+                          <th className="pb-2 tabular-nums">{t('colCalls')}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {data.mcpLatencyPercentiles.perTool.map((row, i) => (
+                          <tr key={i} className="text-xs">
+                            <td className="py-1.5 pr-3 font-mono text-foreground">{row.toolName}</td>
+                            <td className="py-1.5 pr-3 text-muted-foreground">{row.mcpServer}</td>
+                            <td className="py-1.5 pr-3 tabular-nums text-green-400">{row.p50}ms</td>
+                            <td className="py-1.5 pr-3 tabular-nums text-yellow-400">{row.p95}ms</td>
+                            <td className="py-1.5 pr-3 tabular-nums text-orange-400">{row.p99}ms</td>
+                            <td className="py-1.5 tabular-nums text-muted-foreground">{row.calls}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Injection Attempts */}

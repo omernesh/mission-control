@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/auth'
 import { readLimiter } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
 import { getSecurityPosture } from '@/lib/security-events'
-import { getMcpCallStats } from '@/lib/mcp-audit'
+import { getMcpCallStats, getMcpLatencyPercentiles } from '@/lib/mcp-audit'
 import { runSecurityScan } from '@/lib/security-scan'
 
 type Timeframe = 'hour' | 'day' | 'week' | 'month'
@@ -101,6 +101,8 @@ export async function GET(request: NextRequest) {
       LIMIT 10
     `).all(workspaceId, since) as any[]
 
+    const latencyPercentiles = getMcpLatencyPercentiles(seconds / 3600, workspaceId)
+
     const totalCalls = mcpTotals?.total_calls ?? 0
     const failureRate = totalCalls > 0
       ? Math.round(((mcpTotals?.failures ?? 0) / totalCalls) * 10000) / 100
@@ -192,6 +194,13 @@ export async function GET(request: NextRequest) {
         uniqueTools: mcpTotals?.unique_tools ?? 0,
         failureRate,
         topTools: topTools.map((t: any) => ({ name: t.tool_name, count: t.count })),
+        latencyPercentiles: {
+          p50: latencyPercentiles.p50,
+          p95: latencyPercentiles.p95,
+          p99: latencyPercentiles.p99,
+          sampleSize: latencyPercentiles.sampleSize,
+          perTool: latencyPercentiles.perTool,
+        },
       },
       rateLimits: {
         totalHits: rateLimitEvents?.total ?? 0,
