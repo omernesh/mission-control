@@ -6,4 +6,8 @@ export const claudiosConfig = {
   wshubPsk: process.env.WSHUB_PSK || '',
   pollIntervalMs: 10_000,
   stalledThresholdMs: 10 * 60 * 1000, // 10 minutes — session active but no activity = stalled/error
+  fetchTimeoutMs: Number(process.env.CLAUDIOS_FETCH_TIMEOUT_MS) || 3000,
+  longFetchTimeoutMs: Number(process.env.CLAUDIOS_LONG_FETCH_TIMEOUT_MS) || 10000,
+  idleThresholdMs: 3 * 60 * 1000,
+  offlineThresholdMs: 5 * 60 * 1000,
 } as const

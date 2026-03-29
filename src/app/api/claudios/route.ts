@@ -7,6 +7,14 @@ import { claudiosConfig } from '@/lib/claudios-config'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+const METRICS_IDLE_THRESHOLD_MS = 90_000 // metrics TTL — stale > 90s = idle
+
+async function proxyFetch<T>(url: string, fallback: T, timeoutMs = claudiosConfig.fetchTimeoutMs): Promise<T> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
+  if (!res.ok) return fallback
+  return await res.json() as T
+}
+
 interface MachineMetrics {
   machineId: string
   cpuPercent: number
@@ -25,8 +33,8 @@ interface MachineMetrics {
  */
 function inferMachineStatus(m: MachineMetrics): 'online' | 'idle' | 'offline' {
   const ageMs = Date.now() - new Date(m.recordedAt).getTime()
-  if (ageMs > 5 * 60 * 1000) return 'offline' // stale > 5min
-  if (ageMs > 90_000) return 'idle' // stale > 90s (metrics TTL)
+  if (ageMs > claudiosConfig.offlineThresholdMs) return 'offline' // stale > 5min
+  if (ageMs > METRICS_IDLE_THRESHOLD_MS) return 'idle' // stale > 90s (metrics TTL)
   return 'online'
 }
 
@@ -63,11 +71,8 @@ export async function GET(request: NextRequest) {
   switch (action) {
     case 'sessions': {
       try {
-        const res = await fetch(`${claudiosConfig.sessionManagerUrl}/sessions`, {
-          signal: AbortSignal.timeout(3000),
-        })
-        if (!res.ok) throw new Error(`Session Manager returned ${res.status}`)
-        const data = await res.json()
+        const data = await proxyFetch(`${claudiosConfig.sessionManagerUrl}/sessions`, null)
+        if (!data) throw new Error('Session Manager unreachable')
         return NextResponse.json(data)
       } catch (err) {
         console.error('[claudios] action=sessions:', err)
@@ -77,11 +82,8 @@ export async function GET(request: NextRequest) {
 
     case 'metrics': {
       try {
-        const res = await fetch(`${claudiosConfig.claudiosApiUrl}/api/machines/metrics`, {
-          signal: AbortSignal.timeout(3000),
-        })
-        if (!res.ok) throw new Error(`Claudios API returned ${res.status}`)
-        const data = await res.json() as { machines: MachineMetrics[] }
+        const data = await proxyFetch<{ machines: MachineMetrics[] } | null>(`${claudiosConfig.claudiosApiUrl}/api/machines/metrics`, null)
+        if (!data) throw new Error('Claudios API unreachable')
         const machines: MachineMetrics[] = data.machines ?? []
 
         const mapped = machines.map(m => ({
@@ -113,12 +115,9 @@ export async function GET(request: NextRequest) {
 
     case 'tasks': {
       try {
-        const res = await fetch(`${claudiosConfig.acpUrl}/acp/sessions`, {
-          signal: AbortSignal.timeout(3000),
-        })
-        if (!res.ok) throw new Error(`ACP returned ${res.status}`)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sessions = await res.json() as any[]
+        const sessions = await proxyFetch<any[] | null>(`${claudiosConfig.acpUrl}/acp/sessions`, null)
+        if (!sessions) throw new Error('ACP unreachable')
 
         // NOTE: Read-only mirror. ACP has no PATCH endpoint for task status — MC cannot write back.
         // Per CONTEXT.md discussion: bidirectional writeback descoped to read-only mirror.
@@ -140,12 +139,10 @@ export async function GET(request: NextRequest) {
 
     case 'gsd': {
       try {
-        const [projectsRes, statusRes] = await Promise.all([
-          fetch(`${claudiosConfig.claudiosApiUrl}/api/projects`, { signal: AbortSignal.timeout(3000) }),
-          fetch(`${claudiosConfig.claudiosApiUrl}/api/projects/status`, { signal: AbortSignal.timeout(3000) }),
+        const [projects, status] = await Promise.all([
+          proxyFetch(`${claudiosConfig.claudiosApiUrl}/api/projects`, { phases: [], state: null }),
+          proxyFetch(`${claudiosConfig.claudiosApiUrl}/api/projects/status`, null),
         ])
-        const projects = projectsRes.ok ? await projectsRes.json() : { phases: [], state: null }
-        const status = statusRes.ok ? await statusRes.json() : null
         return NextResponse.json({ projects, status })
       } catch (err) {
         console.error('[claudios] action=gsd:', err)
@@ -167,16 +164,17 @@ export async function GET(request: NextRequest) {
       }
       const url = urlMap[sub] || urlMap.graph
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
-        if (!res.ok) throw new Error(`Claudios API returned ${res.status}`)
-        const data = await res.json()
+        const data = await proxyFetch<Record<string, unknown> | null>(url, null, claudiosConfig.longFetchTimeoutMs)
+        if (!data) throw new Error('Claudios API unreachable')
 
         if (sub === 'graph') {
           // Unwrap Cytoscape data wrapping to reagraph-compatible flat format
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const rawNodes: any[] = data.nodes || []
+          const anyData = data as any
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const rawEdges: any[] = data.edges || []
+          const rawNodes: any[] = anyData.nodes || []
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawEdges: any[] = anyData.edges || []
           const nodes = rawNodes.map((n: { data: { id: string; label: string; type: string; salience: number; accessCount: number; clusterId: number; content: string; x: number; y: number } }) => ({
             id: n.data.id,
             label: n.data.label,
@@ -191,7 +189,7 @@ export async function GET(request: NextRequest) {
             source: e.data.source,
             target: e.data.target,
           }))
-          return NextResponse.json({ nodes, edges, clusters: data.clusters || [], cachedAt: data.cachedAt })
+          return NextResponse.json({ nodes, edges, clusters: anyData.clusters || [], cachedAt: anyData.cachedAt })
         }
 
         // timeline / clusters: pass through raw JSON
@@ -209,11 +207,9 @@ export async function GET(request: NextRequest) {
       const params = new URLSearchParams({ limit, offset })
       if (q) params.set('q', q)
       try {
-        const res = await fetch(`${claudiosConfig.claudiosApiUrl}/api/standups?${params}`, {
-          signal: AbortSignal.timeout(3000),
-        })
-        if (!res.ok) throw new Error(`Claudios API returned ${res.status}`)
-        return NextResponse.json(await res.json())
+        const data = await proxyFetch(`${claudiosConfig.claudiosApiUrl}/api/standups?${params}`, null)
+        if (!data) throw new Error('Claudios API unreachable')
+        return NextResponse.json(data)
       } catch (err) {
         console.error('[claudios] action=standups:', err)
         return NextResponse.json({ reports: [], total: 0, error: 'Claudios API unreachable' })
@@ -224,7 +220,7 @@ export async function GET(request: NextRequest) {
       // Try Claudios API first; fall back to local filesystem read of %USERPROFILE%/.claude/skills/
       try {
         const res = await fetch(`${claudiosConfig.claudiosApiUrl}/api/skills`, {
-          signal: AbortSignal.timeout(3000),
+          signal: AbortSignal.timeout(claudiosConfig.fetchTimeoutMs),
         })
         if (res.ok) {
           return NextResponse.json(await res.json())
@@ -265,7 +261,7 @@ export async function GET(request: NextRequest) {
     case 'token-sync': {
       try {
         const res = await fetch(`${claudiosConfig.sessionManagerUrl}/sessions`, {
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(claudiosConfig.longFetchTimeoutMs),
         })
         if (!res.ok) throw new Error(`Session Manager returned ${res.status}`)
         const data = await res.json() as Array<{
@@ -322,7 +318,7 @@ export async function POST(request: NextRequest) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ command }),
-            signal: AbortSignal.timeout(10_000),
+            signal: AbortSignal.timeout(claudiosConfig.longFetchTimeoutMs),
           }
         )
         if (!res.ok) throw new Error(`Claudios returned ${res.status}`)
@@ -344,7 +340,7 @@ export async function POST(request: NextRequest) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus }),
-            signal: AbortSignal.timeout(5000),
+            signal: AbortSignal.timeout(claudiosConfig.fetchTimeoutMs),
           }
         )
         if (!res.ok) throw new Error(`ACP returned ${res.status}`)

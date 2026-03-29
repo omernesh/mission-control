@@ -37,6 +37,11 @@ function statusBadgeClass(status: PhaseInfo['status']): string {
   }
 }
 
+function StatusLabel({ status, t }: { status: PhaseInfo['status']; t: ReturnType<typeof useTranslations> }) {
+  const statusLabel: Record<string, string> = { complete: t('complete'), 'in-progress': t('inProgress') }
+  return <>{statusLabel[status] || t('notStarted')}</>
+}
+
 export function GsdTimelinePanel() {
   const t = useTranslations('gsdTimeline')
   const tc = useTranslations('common')
@@ -163,11 +168,7 @@ export function GsdTimelinePanel() {
                     <span
                       className={`inline-flex px-2 py-0.5 rounded text-xs font-medium border ${statusBadgeClass(phase.status)}`}
                     >
-                      {phase.status === 'complete'
-                        ? t('complete')
-                        : phase.status === 'in-progress'
-                        ? t('inProgress')
-                        : t('notStarted')}
+                      <StatusLabel status={phase.status} t={t} />
                     </span>
                   </div>
                 </div>

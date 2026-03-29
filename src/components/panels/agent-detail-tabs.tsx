@@ -6,62 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Loader } from '@/components/ui/loader'
 import { createClientLogger } from '@/lib/client-logger'
 import Link from 'next/link'
+import { type Agent } from '@/store'
+import { type WorkItem, type HeartbeatResponse, type SoulTemplate, statusColors, statusIcons } from '@/lib/types/agent-shared'
 
 const log = createClientLogger('AgentDetailTabs')
 
-interface Agent {
-  id: number
-  name: string
-  role: string
-  session_key?: string
-  soul_content?: string
-  working_memory?: string
-  status: 'offline' | 'idle' | 'busy' | 'error'
-  last_seen?: number
-  last_activity?: string
-  created_at: number
-  updated_at: number
-  taskStats?: {
-    total: number
-    assigned: number
-    in_progress: number
-    completed: number
-  }
-}
-
-interface WorkItem {
-  type: string
-  count: number
-  items: any[]
-}
-
-interface HeartbeatResponse {
-  status: 'HEARTBEAT_OK' | 'WORK_ITEMS_FOUND'
-  agent: string
-  checked_at: number
-  work_items?: WorkItem[]
-  total_items?: number
-  message?: string
-}
-
-interface SoulTemplate {
-  name: string
-  description: string
-  size: number
-}
-
-const statusColors: Record<string, string> = {
-  offline: 'bg-gray-500',
-  idle: 'bg-green-500',
-  busy: 'bg-yellow-500',
-  error: 'bg-red-500',
-}
-
-const statusIcons: Record<string, string> = {
-  offline: '-',
-  idle: 'o',
-  busy: '~',
-  error: '!',
+function getAgentModelDisplay(agent: Agent): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = (agent as any).config?.model?.primary
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const m = (agent as any).model
+  const v = typeof p === 'string' ? p : p?.primary
+  return v || (typeof m === 'string' ? m : m?.primary) || ''
 }
 
 // Overview Tab Component
@@ -214,7 +170,7 @@ export function OverviewTab({
                 </select>
               ) : (
                 <span className="text-foreground font-mono text-xs">
-                  {(() => { const p = (agent as any).config?.model?.primary; const m = (agent as any).model; const v = typeof p === 'string' ? p : p?.primary; return v || (typeof m === 'string' ? m : m?.primary) || t('default') })()}
+                  {getAgentModelDisplay(agent) || t('default')}
                 </span>
               )}
             </div>
@@ -981,10 +937,10 @@ export function CreateAgentModal({
       for (const s of steps) s.status = 'done'
       setProgressSteps([...steps])
       setTimeout(() => { onCreated(); onClose() }, 1500)
-    } catch (err: any) {
+    } catch (err) {
       // Network/unexpected error — fail first step
       steps[0].status = 'error'
-      steps[0].error = err.message || 'Unexpected error'
+      steps[0].error = (err instanceof Error ? err.message : String(err)) || 'Unexpected error'
       for (let i = 1; i < steps.length; i++) steps[i].status = 'pending'
       setProgressSteps([...steps])
     } finally {
@@ -1516,7 +1472,7 @@ export function ConfigTab({
     setError(null)
     try {
       await onSaveWorkspaceFile(file, content)
-    } catch (err: any) {
+    } catch (err) {
       setError(err?.message || `Failed to save ${file}`)
     } finally {
       if (file === 'identity.md') {
@@ -1549,8 +1505,8 @@ export function ConfigTab({
       if (!response.ok) throw new Error(data.error || 'Failed to save')
       setEditing(false)
       onSave()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }
@@ -2182,8 +2138,8 @@ export function FilesTab({ agent }: { agent: Agent }) {
         content: String(value?.content || ''),
       }))
       setFiles(entries)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
@@ -2217,8 +2173,8 @@ export function FilesTab({ agent }: { agent: Agent }) {
       setFiles(prev => prev.map(f =>
         f.name === activeFile ? { ...f, exists: true, content: draft } : f
       ))
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }
@@ -2374,8 +2330,8 @@ export function ToolsTab({ agent }: { agent: Agent }) {
       }
       setSuccess(true)
       setTimeout(() => setSuccess(false), 2000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }
@@ -2548,8 +2504,8 @@ export function ChannelsTab({ agent }: { agent: Agent }) {
       })
 
       setChannels(entries)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
@@ -2651,8 +2607,8 @@ export function CronTab({ agent }: { agent: Agent }) {
       if (!response.ok) throw new Error('Failed to load cron jobs')
       const data = await response.json()
       setAllJobs(data.jobs || [])
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
@@ -2813,8 +2769,8 @@ export function ModelsTab({ agent }: { agent: Agent }) {
       }
       setSuccess(true)
       setTimeout(() => setSuccess(false), 2000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }

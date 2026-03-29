@@ -41,7 +41,7 @@ export function mapSessionStatus(
   if (!session.last_activity) return 'error' // active with no activity = stalled
   const ageMs = Date.now() - new Date(session.last_activity).getTime()
   if (ageMs >= claudiosConfig.stalledThresholdMs) return 'error' // stalled
-  if (ageMs >= 3 * 60 * 1000) return 'idle'
+  if (ageMs >= claudiosConfig.idleThresholdMs) return 'idle'
   return 'busy'
 }
 
@@ -61,7 +61,7 @@ export class ClaudiosAdapter implements FrameworkAdapter {
   async heartbeat(_payload: HeartbeatPayload): Promise<void> {
     try {
       const res = await fetch(`${claudiosConfig.sessionManagerUrl}/sessions`, {
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(claudiosConfig.fetchTimeoutMs),
       })
       if (!res.ok) return
       const data = await res.json() as { sessions: SessionManagerSession[] }
@@ -99,7 +99,7 @@ export class ClaudiosAdapter implements FrameworkAdapter {
   async getAssignments(_agentId: string): Promise<Assignment[]> {
     try {
       const res = await fetch(`${claudiosConfig.acpUrl}/acp/sessions`, {
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(claudiosConfig.fetchTimeoutMs),
       })
       if (!res.ok) return []
       const sessions = await res.json() as AcpSession[]

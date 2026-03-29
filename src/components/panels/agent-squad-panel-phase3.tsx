@@ -24,36 +24,11 @@ import {
 } from './agent-detail-tabs'
 import { formatModelName, buildTaskStatParts } from '@/lib/agent-card-helpers'
 import { useMissionControl, type Agent } from '@/store'
+import { type WorkItem, type HeartbeatResponse, type SoulTemplate, statusColors } from '@/lib/types/agent-shared'
 
 const log = createClientLogger('AgentSquadPhase3')
 
-interface WorkItem {
-  type: string
-  count: number
-  items: any[]
-}
-
-interface HeartbeatResponse {
-  status: 'HEARTBEAT_OK' | 'WORK_ITEMS_FOUND'
-  agent: string
-  checked_at: number
-  work_items?: WorkItem[]
-  total_items?: number
-  message?: string
-}
-
-interface SoulTemplate {
-  name: string
-  description: string
-  size: number
-}
-
-const statusColors: Record<string, string> = {
-  offline: 'bg-gray-500',
-  idle: 'bg-green-500',
-  busy: 'bg-yellow-500',
-  error: 'bg-red-500',
-}
+const POLL_INTERVAL_MS = 30_000
 
 const statusBadgeStyles: Record<string, string> = {
   offline: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
@@ -135,7 +110,7 @@ function SessionsSubPanel() {
 
   useEffect(() => {
     fetchSessions()
-    const interval = setInterval(fetchSessions, 30000)
+    const interval = setInterval(fetchSessions, POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [fetchSessions])
 
@@ -374,8 +349,8 @@ export function AgentSquadPanelPhase3() {
       }
       fetchAgents()
       setTimeout(() => setSyncToast(null), 5000)
-    } catch (err: any) {
-      setSyncToast(`Sync failed: ${err.message}`)
+    } catch (err) {
+      setSyncToast(`Sync failed: ${err instanceof Error ? err.message : String(err)}`)
       setTimeout(() => setSyncToast(null), 5000)
     } finally {
       setSyncing(false)
@@ -412,7 +387,7 @@ export function AgentSquadPanelPhase3() {
   }, [agents.length, setAgents, showHidden])
 
   // Smart polling with visibility pause
-  useSmartPoll(fetchAgents, 30000, { enabled: autoRefresh, pauseWhenSseConnected: true })
+  useSmartPoll(fetchAgents, POLL_INTERVAL_MS, { enabled: autoRefresh, pauseWhenSseConnected: true })
 
   // Update agent status
   const updateAgentStatus = async (agentName: string, status: Agent['status'], activity?: string) => {
@@ -1120,7 +1095,7 @@ function AgentDetailModalPhase3({
     try {
       await onDelete(agentState.id, removeWorkspace)
       onClose()
-    } catch (error: any) {
+    } catch (error) {
       setDeleteError(error?.message || `Failed to delete ${scope}`)
     } finally {
       setDeleteBusy(false)
