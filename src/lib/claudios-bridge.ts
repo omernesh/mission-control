@@ -50,7 +50,7 @@ export class ClaudiosBridge {
       }))
     })
 
-    this.ws.on('message', (data: WebSocket.RawData) => {
+    this.ws.on('message', async (data: WebSocket.RawData) => {
       try {
         const envelope = JSON.parse(data.toString()) as Record<string, unknown>
 
@@ -66,6 +66,22 @@ export class ClaudiosBridge {
             type: envelope.type,
             payload: envelope.payload,
           })
+
+          // Persist to activities table so events survive page refresh
+          try {
+            const { db_helpers } = await import('@/lib/db')
+            db_helpers.logActivity(
+              typeOrChannel.replace('.', '_'),
+              'system',
+              0,
+              'claudios',
+              `${typeOrChannel}: ${JSON.stringify(envelope.payload || {}).slice(0, 200)}`,
+              { source: 'claudios-wshub', channel: envelope.channel, payload: envelope.payload },
+              1
+            )
+          } catch {
+            // DB write failure must not break event forwarding
+          }
         }
       } catch {
         // Ignore malformed messages

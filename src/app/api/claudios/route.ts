@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import fs from 'fs'
+import path from 'path'
 import { requireRole } from '@/lib/auth'
 import { claudiosConfig } from '@/lib/claudios-config'
 
@@ -212,9 +214,49 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    case 'skills': {
+      // Try Claudios API first; fall back to local filesystem read of %USERPROFILE%/.claude/skills/
+      try {
+        const res = await fetch(`${claudiosConfig.claudiosApiUrl}/api/skills`, {
+          signal: AbortSignal.timeout(3000),
+        })
+        if (res.ok) {
+          return NextResponse.json(await res.json())
+        }
+      } catch {
+        // Fall through to filesystem read
+      }
+
+      try {
+        const userProfile = process.env.USERPROFILE || process.env.HOME || ''
+        const skillsDir = path.join(userProfile, '.claude', 'skills')
+        if (!fs.existsSync(skillsDir)) {
+          return NextResponse.json({ skills: [], total: 0, source: 'filesystem' })
+        }
+        const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
+        const skills = entries
+          .filter(e => e.isDirectory())
+          .map(e => {
+            const skillMdPath = path.join(skillsDir, e.name, 'SKILL.md')
+            let description = ''
+            if (fs.existsSync(skillMdPath)) {
+              const content = fs.readFileSync(skillMdPath, 'utf8')
+              // Extract first non-empty line after frontmatter as description
+              const lines = content.split('\n').filter(l => l.trim())
+              const descLine = lines.find(l => !l.startsWith('---') && !l.startsWith('#'))
+              description = descLine?.trim() ?? ''
+            }
+            return { name: e.name, path: path.join(skillsDir, e.name), description }
+          })
+        return NextResponse.json({ skills, total: skills.length, source: 'filesystem' })
+      } catch {
+        return NextResponse.json({ skills: [], total: 0, error: 'Skills directory unreadable' })
+      }
+    }
+
     default:
       return NextResponse.json(
-        { error: 'Unknown action. Use: sessions, metrics, tasks, gsd, memories, standups' },
+        { error: 'Unknown action. Use: sessions, metrics, tasks, gsd, memories, standups, skills' },
         { status: 400 }
       )
   }
@@ -251,7 +293,29 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Command execution failed' }, { status: 502 })
       }
     }
+    case 'task-status': {
+      const { taskId, newStatus } = body as { taskId?: number; newStatus?: string }
+      if (taskId === undefined || taskId === null || !newStatus) {
+        return NextResponse.json({ error: 'Missing taskId or newStatus' }, { status: 400 })
+      }
+      try {
+        const res = await fetch(
+          `${claudiosConfig.acpUrl}/acp/tasks/${taskId}/status`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus }),
+            signal: AbortSignal.timeout(5000),
+          }
+        )
+        if (!res.ok) throw new Error(`ACP returned ${res.status}`)
+        return NextResponse.json({ ok: true, persisted: 'acp+mc' })
+      } catch {
+        return NextResponse.json({ ok: true, persisted: 'mc-only', warning: 'ACP unreachable' })
+      }
+    }
+
     default:
-      return NextResponse.json({ error: 'Unknown POST action. Use: command' }, { status: 400 })
+      return NextResponse.json({ error: 'Unknown POST action. Use: command, task-status' }, { status: 400 })
   }
 }
