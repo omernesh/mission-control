@@ -50,6 +50,84 @@ export function logMcpCall(input: McpCallInput): number {
   return result.lastInsertRowid as number
 }
 
+export interface McpLatencyPercentiles {
+  p50: number
+  p95: number
+  p99: number
+  sampleSize: number
+  perTool: Array<{
+    toolName: string
+    mcpServer: string
+    p50: number
+    p95: number
+    p99: number
+    calls: number
+  }>
+}
+
+function computePercentile(sorted: number[], pct: number): number {
+  if (sorted.length === 0) return 0
+  const idx = Math.ceil(pct / 100 * sorted.length) - 1
+  return sorted[Math.max(0, idx)]
+}
+
+export function getMcpLatencyPercentiles(
+  hours: number = 24,
+  workspaceId: number = 1,
+): McpLatencyPercentiles {
+  const db = getDatabase()
+  const since = Math.floor(Date.now() / 1000) - hours * 3600
+
+  const rows = db.prepare(`
+    SELECT duration_ms, tool_name, mcp_server
+    FROM mcp_call_log
+    WHERE workspace_id = ? AND created_at > ? AND duration_ms IS NOT NULL
+    ORDER BY duration_ms ASC
+  `).all(workspaceId, since) as Array<{ duration_ms: number; tool_name: string | null; mcp_server: string | null }>
+
+  if (rows.length === 0) {
+    return { p50: 0, p95: 0, p99: 0, sampleSize: 0, perTool: [] }
+  }
+
+  const allDurations = rows.map(r => r.duration_ms)
+
+  // Per-tool grouping
+  const toolMap = new Map<string, { durations: number[]; mcpServer: string }>()
+  for (const row of rows) {
+    const key = `${row.tool_name ?? 'unknown'}::${row.mcp_server ?? 'unknown'}`
+    const existing = toolMap.get(key)
+    if (existing) {
+      existing.durations.push(row.duration_ms)
+    } else {
+      toolMap.set(key, {
+        durations: [row.duration_ms],
+        mcpServer: row.mcp_server ?? 'unknown',
+      })
+    }
+  }
+
+  const perTool = Array.from(toolMap.entries()).map(([key, { durations, mcpServer }]) => {
+    const toolName = key.split('::')[0]
+    const sorted = [...durations].sort((a, b) => a - b)
+    return {
+      toolName,
+      mcpServer,
+      p50: computePercentile(sorted, 50),
+      p95: computePercentile(sorted, 95),
+      p99: computePercentile(sorted, 99),
+      calls: sorted.length,
+    }
+  })
+
+  return {
+    p50: computePercentile(allDurations, 50),
+    p95: computePercentile(allDurations, 95),
+    p99: computePercentile(allDurations, 99),
+    sampleSize: allDurations.length,
+    perTool,
+  }
+}
+
 export function getMcpCallStats(
   agentName: string,
   hours: number = 24,
