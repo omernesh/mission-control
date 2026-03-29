@@ -93,6 +93,249 @@ const statusCardStyles: Record<string, { edge: string; glow: string; dot: string
   },
 }
 
+// ---- Claudios Sessions Types ----
+interface ClaudiosSession {
+  id: string
+  hostname: string
+  status: 'active' | 'idle' | 'stalled' | string
+  nickname?: string
+  project_id?: string
+  last_activity?: number
+}
+
+type SessionFilter = 'all' | 'active' | 'idle' | 'stalled'
+
+// ---- Sessions Sub-panel ----
+function SessionsSubPanel() {
+  const t = useTranslations('agentSquadPhase3')
+  const [sessions, setSessions] = useState<ClaudiosSession[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState<SessionFilter>('all')
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [commandInputs, setCommandInputs] = useState<Record<string, string>>({})
+  const [commandVisible, setCommandVisible] = useState<Set<string>>(new Set())
+  const [commandSending, setCommandSending] = useState<Set<string>>(new Set())
+  const [commandResults, setCommandResults] = useState<Record<string, { ok: boolean; msg: string }>>({})
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/claudios?action=sessions')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setSessions(data.sessions || [])
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load sessions')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchSessions()
+    const interval = setInterval(fetchSessions, 30000)
+    return () => clearInterval(interval)
+  }, [fetchSessions])
+
+  const filteredSessions = filter === 'all' ? sessions : sessions.filter(s => s.status === filter)
+
+  const grouped = filteredSessions.reduce<Record<string, ClaudiosSession[]>>((acc, s) => {
+    const host = s.hostname || 'Unknown'
+    ;(acc[host] ??= []).push(s)
+    return acc
+  }, {})
+
+  const sortedHosts = Object.keys(grouped).sort()
+
+  const filterCounts: Record<SessionFilter, number> = {
+    all: sessions.length,
+    active: sessions.filter(s => s.status === 'active').length,
+    idle: sessions.filter(s => s.status === 'idle').length,
+    stalled: sessions.filter(s => s.status === 'stalled').length,
+  }
+
+  const toggleGroup = (host: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(host)) next.delete(host)
+      else next.add(host)
+      return next
+    })
+  }
+
+  const toggleCommand = (sessionId: string) => {
+    setCommandVisible(prev => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) next.delete(sessionId)
+      else next.add(sessionId)
+      return next
+    })
+  }
+
+  const sendCommand = async (sessionId: string) => {
+    const cmd = commandInputs[sessionId]?.trim()
+    if (!cmd) return
+    setCommandSending(prev => new Set(prev).add(sessionId))
+    try {
+      const res = await fetch('/api/claudios?action=command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, command: cmd }),
+      })
+      const data = await res.json()
+      setCommandResults(prev => ({
+        ...prev,
+        [sessionId]: { ok: res.ok && data.success !== false, msg: data.output || (res.ok ? 'Command sent' : (data.error || `HTTP ${res.status}`)) },
+      }))
+      if (res.ok) setCommandInputs(prev => ({ ...prev, [sessionId]: '' }))
+    } catch (err) {
+      setCommandResults(prev => ({
+        ...prev,
+        [sessionId]: { ok: false, msg: err instanceof Error ? err.message : 'Network error' },
+      }))
+    } finally {
+      setCommandSending(prev => { const next = new Set(prev); next.delete(sessionId); return next })
+      setTimeout(() => {
+        setCommandResults(prev => { const next = { ...prev }; delete next[sessionId]; return next })
+      }, 3000)
+    }
+  }
+
+  const statusBadge: Record<string, string> = {
+    active: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    idle: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    stalled: 'bg-red-500/15 text-red-400 border-red-500/30',
+  }
+
+  if (loading) return <div className="text-muted-foreground text-sm py-8 text-center">{t('loadingSessions')}</div>
+
+  return (
+    <div className="p-4 space-y-3">
+      {error && (
+        <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
+      )}
+
+      {/* Filter bar */}
+      <div className="flex gap-2 flex-wrap">
+        {(['all', 'active', 'idle', 'stalled'] as SessionFilter[]).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              filter === f
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-secondary text-muted-foreground border-border hover:text-foreground'
+            }`}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+            <span className="ml-1.5 opacity-70">{filterCounts[f]}</span>
+          </button>
+        ))}
+        <button
+          onClick={fetchSessions}
+          className="ml-auto px-3 py-1 rounded-full text-xs font-medium border border-border bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {t('refresh')}
+        </button>
+      </div>
+
+      {/* Grouped sections */}
+      {sortedHosts.length === 0 && (
+        <div className="text-muted-foreground text-sm py-8 text-center">{t('noSessions')}</div>
+      )}
+
+      {sortedHosts.map(host => {
+        const hostSessions = grouped[host]
+        const isCollapsed = collapsedGroups.has(host)
+        return (
+          <div key={host} className="border border-border rounded-lg mb-3 overflow-hidden">
+            {/* Group header */}
+            <button
+              onClick={() => toggleGroup(host)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-secondary/50 hover:bg-secondary transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">{host}</span>
+                <span className="px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground border border-border">
+                  {hostSessions.length}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">{isCollapsed ? '▸' : '▾'}</span>
+            </button>
+
+            {/* Session rows */}
+            {!isCollapsed && (
+              <div className="divide-y divide-border/50">
+                {hostSessions.map(session => {
+                  const isActive = session.status === 'active'
+                  const showCmd = commandVisible.has(session.id)
+                  const sending = commandSending.has(session.id)
+                  const result = commandResults[session.id]
+                  return (
+                    <div key={session.id} className="px-4 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">
+                            {session.nickname || session.id}
+                          </div>
+                          {session.project_id && (
+                            <div className="text-xs text-muted-foreground truncate">{session.project_id}</div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium border ${statusBadge[session.status] || 'bg-secondary text-muted-foreground border-border'}`}>
+                            {session.status}
+                          </span>
+                          {isActive && (
+                            <button
+                              onClick={() => toggleCommand(session.id)}
+                              className="px-2 py-0.5 rounded text-xs border border-border bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                            >
+                              {t('runCommand')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Inline command input */}
+                      {isActive && showCmd && (
+                        <div className="mt-2">
+                          <div className="flex gap-2">
+                            <input
+                              value={commandInputs[session.id] || ''}
+                              onChange={e => setCommandInputs(prev => ({ ...prev, [session.id]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === 'Enter' && !sending) sendCommand(session.id) }}
+                              placeholder={t('commandPlaceholder')}
+                              className="flex-1 h-8 px-3 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            />
+                            <button
+                              onClick={() => sendCommand(session.id)}
+                              disabled={sending || !commandInputs[session.id]?.trim()}
+                              className="px-3 h-8 rounded-md bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                            >
+                              {sending ? t('sending') : t('send')}
+                            </button>
+                          </div>
+                          {result && (
+                            <div className={`mt-1 text-xs px-2 py-1 rounded ${result.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {result.msg}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function AgentSquadPanelPhase3() {
   const t = useTranslations('agentSquadPhase3')
   const { agents, setAgents } = useMissionControl()
@@ -105,6 +348,7 @@ export function AgentSquadPanelPhase3() {
   const [syncing, setSyncing] = useState(false)
   const [syncToast, setSyncToast] = useState<string | null>(null)
   const [showHidden, setShowHidden] = useState(false)
+  const [activeView, setActiveView] = useState<'agents' | 'sessions'>('agents')
 
   // Sync agents from gateway config or local disk
   const syncFromConfig = async (source?: 'local') => {
@@ -304,6 +548,29 @@ export function AgentSquadPanelPhase3() {
     return <Loader variant="panel" label="Loading agents" />
   }
 
+  if (activeView === 'sessions') {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-3 p-4 border-b border-border flex-shrink-0">
+          <button
+            onClick={() => setActiveView('agents')}
+            className="px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          >
+            {t('tabAgents')}
+          </button>
+          <button
+            className="px-3 py-1.5 rounded-md text-sm font-medium bg-secondary text-foreground"
+          >
+            {t('tabSessions')}
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <SessionsSubPanel />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -331,6 +598,13 @@ export function AgentSquadPanelPhase3() {
         </div>
         
         <div className="flex gap-2">
+          <Button
+            onClick={() => setActiveView('sessions')}
+            variant="secondary"
+            size="sm"
+          >
+            {t('tabSessions')}
+          </Button>
           <Button
             onClick={() => setAutoRefresh(!autoRefresh)}
             variant={autoRefresh ? 'success' : 'secondary'}

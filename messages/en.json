@@ -2010,7 +2010,15 @@
     "noAgents": "No agents registered",
     "noAgentsHint": "Sync from config or create your first agent to get started.",
     "wake": "Wake",
-    "spawn": "Spawn"
+    "spawn": "Spawn",
+    "tabAgents": "Agents",
+    "tabSessions": "Sessions",
+    "loadingSessions": "Loading sessions...",
+    "noSessions": "No sessions found",
+    "runCommand": "Run Command",
+    "commandPlaceholder": "Enter command...",
+    "sending": "Sending...",
+    "send": "Send"
   },
   "orchestration": {
     "tabCommand": "Command",
