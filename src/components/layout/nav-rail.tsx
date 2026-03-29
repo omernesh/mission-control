@@ -35,6 +35,10 @@ const navGroups: NavGroup[] = [
       { id: 'channels', label: 'Channels', icon: <ChannelsIcon />, priority: false },
       { id: 'skills', label: 'Skills', icon: <SkillsIcon />, priority: false },
       { id: 'memory', label: 'Memory', icon: <MemoryIcon />, priority: false },
+      { id: 'gsd-timeline', label: 'GSD', icon: <GsdTimelineIcon />, priority: false },
+      { id: 'org-chart', label: 'Org Chart', icon: <OrgChartIcon />, priority: false },
+      { id: 'standup-reports', label: 'Standups', icon: <StandupIcon />, priority: false },
+      { id: 'memory-graph', label: 'Memory Graph', icon: <MemoryGraphIcon />, priority: false },
     ],
   },
   {
@@ -109,6 +113,10 @@ const navItemTranslationKeys: Record<string, string> = {
   integrations: 'integrations',
   debug: 'debug',
   settings: 'settings',
+  'gsd-timeline': 'gsdTimeline',
+  'org-chart': 'orgChart',
+  'standup-reports': 'standupReports',
+  'memory-graph': 'memoryGraph',
 }
 
 // Map group IDs to translation keys in the 'nav.group' namespace
@@ -1508,6 +1516,46 @@ function MonitorIcon() {
       <rect x="1" y="2" width="14" height="10" rx="1.5" />
       <polyline points="4,9 6,6 8,8 12,4" />
       <path d="M5 14h6" />
+    </svg>
+  )
+}
+
+function GsdTimelineIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v18h18M7 16h2v-5H7v5zm4 0h2V8h-2v8zm4 0h2v-3h-2v3z" />
+    </svg>
+  )
+}
+
+function OrgChartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2" width="6" height="4" rx="1" />
+      <rect x="2" y="10" width="6" height="4" rx="1" />
+      <rect x="16" y="10" width="6" height="4" rx="1" />
+      <path d="M12 6v2M5 10V8h14v2" />
+    </svg>
+  )
+}
+
+function StandupIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 2h6l1 2H8l1-2zM7 4h10v16H7V4zm3 4h4m-4 3h4m-4 3h2" />
+    </svg>
+  )
+}
+
+function MemoryGraphIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <circle cx="5" cy="6" r="2" />
+      <circle cx="19" cy="6" r="2" />
+      <circle cx="5" cy="18" r="2" />
+      <circle cx="19" cy="18" r="2" />
+      <path d="M7 7l3 3m4 0l3-3M7 17l3-3m4 0l3 3" />
     </svg>
   )
 }
