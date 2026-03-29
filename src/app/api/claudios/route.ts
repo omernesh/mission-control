@@ -133,10 +133,125 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    case 'gsd': {
+      try {
+        const [projectsRes, statusRes] = await Promise.all([
+          fetch(`${claudiosConfig.claudiosApiUrl}/api/projects`, { signal: AbortSignal.timeout(3000) }),
+          fetch(`${claudiosConfig.claudiosApiUrl}/api/projects/status`, { signal: AbortSignal.timeout(3000) }),
+        ])
+        const projects = projectsRes.ok ? await projectsRes.json() : { phases: [], state: null }
+        const status = statusRes.ok ? await statusRes.json() : null
+        return NextResponse.json({ projects, status })
+      } catch {
+        return NextResponse.json({
+          projects: { phases: [], state: null },
+          status: null,
+          error: 'Claudios API unreachable',
+        })
+      }
+    }
+
+    case 'memories': {
+      const sub = request.nextUrl.searchParams.get('sub') || 'graph'
+      const days = request.nextUrl.searchParams.get('days') || '30'
+      const urlMap: Record<string, string> = {
+        graph: `${claudiosConfig.claudiosApiUrl}/api/memories/graph`,
+        timeline: `${claudiosConfig.claudiosApiUrl}/api/memories/timeline?days=${days}`,
+        clusters: `${claudiosConfig.claudiosApiUrl}/api/memories/clusters`,
+      }
+      const url = urlMap[sub] || urlMap.graph
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+        if (!res.ok) throw new Error(`Claudios API returned ${res.status}`)
+        const data = await res.json()
+
+        if (sub === 'graph') {
+          // Unwrap Cytoscape data wrapping to reagraph-compatible flat format
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawNodes: any[] = data.nodes || []
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawEdges: any[] = data.edges || []
+          const nodes = rawNodes.map((n: { data: { id: string; label: string; type: string; salience: number; accessCount: number; clusterId: number; content: string; x: number; y: number } }) => ({
+            id: n.data.id,
+            label: n.data.label,
+            type: n.data.type,
+            salience: n.data.salience,
+            content: n.data.content,
+            fill: n.data.salience > 0.7 ? '#cba6f7' : n.data.salience > 0.4 ? '#89b4fa' : '#6c7086',
+            size: 4 + n.data.salience * 6,
+          }))
+          const edges = rawEdges.map((e: { data: { id: string; source: string; target: string; similarity: number } }) => ({
+            id: e.data.id,
+            source: e.data.source,
+            target: e.data.target,
+          }))
+          return NextResponse.json({ nodes, edges, clusters: data.clusters || [], cachedAt: data.cachedAt })
+        }
+
+        // timeline / clusters: pass through raw JSON
+        return NextResponse.json(data)
+      } catch {
+        return NextResponse.json({ nodes: [], edges: [], clusters: [], error: 'Claudios API unreachable' })
+      }
+    }
+
+    case 'standups': {
+      const q = request.nextUrl.searchParams.get('q')
+      const limit = request.nextUrl.searchParams.get('limit') || '20'
+      const offset = request.nextUrl.searchParams.get('offset') || '0'
+      const params = new URLSearchParams({ limit, offset })
+      if (q) params.set('q', q)
+      try {
+        const res = await fetch(`${claudiosConfig.claudiosApiUrl}/api/standups?${params}`, {
+          signal: AbortSignal.timeout(3000),
+        })
+        if (!res.ok) throw new Error(`Claudios API returned ${res.status}`)
+        return NextResponse.json(await res.json())
+      } catch {
+        return NextResponse.json({ reports: [], total: 0, error: 'Claudios API unreachable' })
+      }
+    }
+
     default:
       return NextResponse.json(
-        { error: 'Unknown action. Use: sessions, metrics, tasks' },
+        { error: 'Unknown action. Use: sessions, metrics, tasks, gsd, memories, standups' },
         { status: 400 }
       )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const auth = requireRole(request, 'admin')
+  if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
+  const body = await request.json().catch(() => null)
+  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+
+  const action = request.nextUrl.searchParams.get('action')
+
+  switch (action) {
+    case 'command': {
+      const { sessionId, command } = body as { sessionId?: string; command?: string }
+      if (!sessionId || !command) {
+        return NextResponse.json({ error: 'Missing sessionId or command' }, { status: 400 })
+      }
+      try {
+        const res = await fetch(
+          `${claudiosConfig.claudiosApiUrl}/api/sessions/${encodeURIComponent(sessionId)}/command`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command }),
+            signal: AbortSignal.timeout(10_000),
+          }
+        )
+        if (!res.ok) throw new Error(`Claudios returned ${res.status}`)
+        return NextResponse.json(await res.json())
+      } catch {
+        return NextResponse.json({ error: 'Command execution failed' }, { status: 502 })
+      }
+    }
+    default:
+      return NextResponse.json({ error: 'Unknown POST action. Use: command' }, { status: 400 })
   }
 }
