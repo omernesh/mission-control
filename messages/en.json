@@ -105,7 +105,11 @@
     },
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
-    "more": "More"
+    "more": "More",
+    "gsdTimeline": "GSD Timeline",
+    "orgChart": "Org Chart",
+    "standupReports": "Standup Reports",
+    "memoryGraph": "Memory Graph"
   },
   "settings": {
     "language": "Language",
@@ -477,7 +481,24 @@
     "legendKnowledge": "knowledge",
     "keyboardHint": "scroll to zoom / drag to pan / click node to drill in",
     "chunks": "chunks",
-    "text": "text"
+    "text": "text",
+    "title": "Memory Graph",
+    "tabs": {
+      "graph": "Graph",
+      "timeline": "Timeline",
+      "clusters": "Clusters",
+      "search": "Search"
+    },
+    "nodes": "Nodes",
+    "edges": "Edges",
+    "search": "Search memories...",
+    "noResults": "No matching memories",
+    "noData": "No memory data available",
+    "cluster": "Cluster",
+    "salience": "Salience",
+    "type": "Type",
+    "content": "Content",
+    "lastAccessed": "Last Accessed"
   },
   "agentComms": {
     "connecting": "Connecting to feed...",
@@ -2155,5 +2176,42 @@
     "tabStatus": "Status",
     "unhealthy": "Unhealthy",
     "unreachable": "Unreachable"
+  },
+  "gsdTimeline": {
+    "title": "GSD Timeline",
+    "milestone": "Milestone",
+    "phase": "Phase",
+    "progress": "Progress",
+    "phases": "Phases",
+    "plans": "Plans",
+    "complete": "Complete",
+    "inProgress": "In Progress",
+    "notStarted": "Not Started",
+    "noData": "No GSD data available",
+    "currentPhase": "Current Phase",
+    "velocity": "Velocity",
+    "stoppedAt": "Stopped At"
+  },
+  "orgChart": {
+    "title": "Org Chart",
+    "owner": "Owner",
+    "chiefOfStaff": "Chief of Staff",
+    "vpRnd": "VP R&D",
+    "worker": "Worker",
+    "active": "Active",
+    "idle": "Idle",
+    "stalled": "Stalled",
+    "noWorkers": "No active workers"
+  },
+  "standupReports": {
+    "title": "Standup Reports",
+    "search": "Search standups...",
+    "date": "Date",
+    "summary": "Summary",
+    "actionItems": "Action Items",
+    "noResults": "No standup reports found",
+    "loadMore": "Load More",
+    "total": "Total",
+    "sammieReachable": "Sammie Reachable"
   }
 }
