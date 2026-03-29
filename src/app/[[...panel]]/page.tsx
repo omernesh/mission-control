@@ -34,6 +34,11 @@ import { ChannelsPanel } from '@/components/panels/channels-panel'
 import { DebugPanel } from '@/components/panels/debug-panel'
 import { SecurityAuditPanel } from '@/components/panels/security-audit-panel'
 import { NodesPanel } from '@/components/panels/nodes-panel'
+import { DocumentsPanel } from '@/components/panels/documents-panel'
+import { GsdTimelinePanel } from '@/components/panels/gsd-timeline-panel'
+import { MemoryGraphPanel } from '@/components/panels/memory-graph-panel'
+import { OrgChartPanel } from '@/components/panels/org-chart-panel'
+import { StandupReportsPanel } from '@/components/panels/standup-reports-panel'
 import { ExecApprovalPanel } from '@/components/panels/exec-approval-panel'
 import { SystemMonitorPanel } from '@/components/panels/system-monitor-panel'
 import { ChatPagePanel } from '@/components/panels/chat-page-panel'
@@ -564,7 +569,6 @@ function ContentRouter({ tab }: { tab: string }) {
       if (isLocal) return <LocalModeUnavailable panel={tab} />
       return <ChannelsPanel />
     case 'nodes':
-      if (isLocal) return <LocalModeUnavailable panel={tab} />
       return <NodesPanel />
     case 'security':
       return <SecurityAuditPanel />
@@ -575,6 +579,16 @@ function ContentRouter({ tab }: { tab: string }) {
       return <ExecApprovalPanel />
     case 'chat':
       return <ChatPagePanel />
+    case 'gsd-timeline':
+      return <GsdTimelinePanel />
+    case 'memory-graph':
+      return <MemoryGraphPanel />
+    case 'org-chart':
+      return <OrgChartPanel />
+    case 'standup-reports':
+      return <StandupReportsPanel />
+    case 'documents':
+      return <DocumentsPanel />
     default: {
       return renderPluginPanel(tab)
     }
