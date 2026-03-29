@@ -40,6 +40,7 @@ const QUICK_NAV_COMMANDS: Array<{ panel: string; titleKey: string; title: string
   { panel: 'github', titleKey: 'goToGithubSync', title: 'Go to GitHub Sync', aliases: ['github', 'sync'] },
   { panel: 'office', titleKey: 'goToOffice', title: 'Go to Office', aliases: ['workspace', 'team'] },
   { panel: 'skills', titleKey: 'goToSkills', title: 'Go to Skills', aliases: ['skill packs', 'agent skills'] },
+  { panel: 'channels', titleKey: 'goToChannels', title: 'Go to Channels', aliases: ['messaging', 'telegram', 'whatsapp'] },
 ]
 
 export function HeaderBar() {
