@@ -47,6 +47,11 @@ const activityIcons: Record<string, string> = {
   standup_generated: '!',
   mention: '>',
   assignment: '=',
+  hermes_session_start: '>',
+  hermes_session_end: '<',
+  hermes_agent_start: '@',
+  hermes_agent_end: 'x',
+  hermes_event: 'H',
 }
 
 const activityColors: Record<string, string> = {
@@ -59,6 +64,11 @@ const activityColors: Record<string, string> = {
   standup_generated: 'text-orange-400',
   mention: 'text-pink-400',
   assignment: 'text-indigo-400',
+  hermes_session_start: 'text-teal-400',
+  hermes_session_end: 'text-teal-400',
+  hermes_agent_start: 'text-emerald-400',
+  hermes_agent_end: 'text-emerald-400',
+  hermes_event: 'text-teal-400',
 }
 
 function formatRelativeTime(timestamp: number) {
