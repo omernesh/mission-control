@@ -51,6 +51,9 @@ export function HeaderBar() {
   const th = useTranslations('header')
 
   const activeSessions = sessions.filter(s => s.active).length
+  const hermesActive = sessions.filter(s => s.kind === 'hermes' && s.active).length
+  const claudeActive = sessions.filter(s => s.kind === 'claude-code' && s.active).length
+  const totalActive = activeSessions
 
   // Search state
   const [searchOpen, setSearchOpen] = useState(false)
@@ -347,7 +350,7 @@ export function HeaderBar() {
         {/* Right: status + actions */}
         <div className="flex items-center justify-end gap-1.5 md:gap-2 min-w-0 shrink-0 ml-auto">
           <div className="hidden xl:flex items-center gap-3">
-            <Stat label={th('sessions')} value={`${activeSessions}/${sessions.length}`} />
+            <Stat label={th('sessions')} value={`${totalActive} (${claudeActive}C/${hermesActive}H)`} />
             <NavigationLatencyStat />
             <SseBadge connected={connection.sseConnected ?? false} />
             <DigitalClock />
