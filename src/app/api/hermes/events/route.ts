@@ -45,11 +45,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json() as HermesEventBody
-    const bodyStr = JSON.stringify(body)
-    if (bodyStr.length > 8192) {
+    const contentLength = parseInt(request.headers.get('content-length') || '0', 10)
+    if (contentLength > 8192) {
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 })
     }
+    const body = await request.json() as HermesEventBody
     const { event, source } = body
 
     if (!event || typeof event !== 'string') {
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     const activityType = EVENT_TYPE_MAP[event] || 'hermes_event'
     const description = descriptionFor(event, source)
 
+    // logActivity is synchronous (better-sqlite3) — exceptions propagate to the catch block
     db_helpers.logActivity(
       activityType,
       'hermes',
