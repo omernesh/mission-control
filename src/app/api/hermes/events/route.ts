@@ -26,10 +26,11 @@ function descriptionFor(event: string, source?: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  // Allow unauthenticated requests from localhost (Hermes hook runs locally on hpg6)
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || ''
-  const isLocalhost = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '' || clientIp === '::ffff:127.0.0.1'
-  if (!isLocalhost) {
+  // Auth: accept either a valid API key/session OR the HERMES_HOOK_SECRET shared secret
+  const hookSecret = process.env.HERMES_HOOK_SECRET
+  const providedSecret = request.headers.get('x-hook-secret')
+  const isHookAuth = hookSecret && providedSecret && hookSecret === providedSecret
+  if (!isHookAuth) {
     const auth = requireRole(request, 'viewer')
     if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
