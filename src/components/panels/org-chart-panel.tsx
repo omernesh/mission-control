@@ -14,6 +14,13 @@ interface Session {
   last_activity: string
 }
 
+interface HermesSession {
+  sessionId: string
+  source: string
+  isActive: boolean
+  title: string | null
+}
+
 function statusColor(status: string): string {
   switch (status?.toLowerCase()) {
     case 'active': return '#22c55e'
@@ -23,7 +30,7 @@ function statusColor(status: string): string {
   }
 }
 
-function buildOrgNodes(workers: Session[], t: ReturnType<typeof useTranslations>): { nodes: Node[]; edges: Edge[] } {
+function buildOrgNodes(workers: Session[], hermesSessions: HermesSession[], t: ReturnType<typeof useTranslations>): { nodes: Node[]; edges: Edge[] } {
   const staticNodes: Node[] = [
     {
       id: 'omer',
@@ -70,10 +77,31 @@ function buildOrgNodes(workers: Session[], t: ReturnType<typeof useTranslations>
     },
   ]
 
+  // Hermes nodes: positioned left, connected to Sammie
+  const hermesSpacing = 160
+  const hermesTotalWidth = Math.max(0, (hermesSessions.length - 1) * hermesSpacing)
+  const hermesStartX = hermesSessions.length > 0 ? 50 : 0
+
+  const hermesNodes: Node[] = hermesSessions.map((h, i) => ({
+    id: `hermes-${h.sessionId}`,
+    position: { x: hermesStartX + i * hermesSpacing, y: 380 },
+    data: { label: h.title || h.source || h.sessionId.slice(0, 8) },
+    style: {
+      background: h.isActive ? '#14b8a622' : '#6b728022',
+      border: `1px solid ${h.isActive ? '#14b8a666' : '#6b728066'}`,
+      color: 'hsl(var(--foreground))',
+      borderRadius: '8px',
+      padding: '6px 12px',
+      fontSize: '12px',
+    },
+  }))
+
+  // Claudios workers: positioned right, connected to Claudios
   const workerCount = workers.length
   const workerSpacing = 160
+  const workerOffsetX = hermesSessions.length > 0 ? hermesStartX + hermesTotalWidth + 300 : 300
   const totalWidth = Math.max(0, (workerCount - 1) * workerSpacing)
-  const startX = 300 - totalWidth / 2
+  const startX = workerOffsetX - totalWidth / 2
 
   const workerNodes: Node[] = workers.map((w, i) => ({
     id: w.id,
@@ -106,6 +134,18 @@ function buildOrgNodes(workers: Session[], t: ReturnType<typeof useTranslations>
     },
   ]
 
+  const hermesEdges: Edge[] = hermesSessions.map(h => ({
+    id: `e-sammie-hermes-${h.sessionId}`,
+    source: 'sammie',
+    target: `hermes-${h.sessionId}`,
+    animated: h.isActive,
+    style: {
+      stroke: h.isActive ? '#14b8a6' : '#6b7280',
+      strokeWidth: 1.5,
+      opacity: 0.7,
+    },
+  }))
+
   const workerEdges: Edge[] = workers.map(w => ({
     id: `e-claudios-${w.id}`,
     source: 'claudios',
@@ -119,14 +159,15 @@ function buildOrgNodes(workers: Session[], t: ReturnType<typeof useTranslations>
   }))
 
   return {
-    nodes: [...staticNodes, ...workerNodes],
-    edges: [...staticEdges, ...workerEdges],
+    nodes: [...staticNodes, ...hermesNodes, ...workerNodes],
+    edges: [...staticEdges, ...hermesEdges, ...workerEdges],
   }
 }
 
 export function OrgChartPanel() {
   const t = useTranslations('orgChart')
   const [sessions, setSessions] = useState<Session[]>([])
+  const [hermesSessions, setHermesSessions] = useState<HermesSession[]>([])
   const [loading, setLoading] = useState(true)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -145,13 +186,36 @@ export function OrgChartPanel() {
     }
   }, [])
 
-  useEffect(() => { fetchSessions() }, [fetchSessions])
+  const fetchHermesSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sessions')
+      if (!res.ok) return
+      const data = await res.json()
+      const hermesOnly = (data.sessions || [])
+        .filter((s: { kind?: string }) => s.kind === 'hermes')
+        .map((s: { id: string; key?: string; active?: boolean }) => ({
+          sessionId: s.id,
+          source: s.key || 'cli',
+          isActive: !!s.active,
+          title: null,
+        }))
+      setHermesSessions(hermesOnly)
+    } catch (err) {
+      console.error('[org-chart] Failed to load hermes sessions:', err)
+      setHermesSessions([])
+    }
+  }, [])
 
   useEffect(() => {
-    const { nodes: n, edges: e } = buildOrgNodes(sessions, t)
+    fetchSessions()
+    fetchHermesSessions()
+  }, [fetchSessions, fetchHermesSessions])
+
+  useEffect(() => {
+    const { nodes: n, edges: e } = buildOrgNodes(sessions, hermesSessions, t)
     setNodes(n)
     setEdges(e)
-  }, [sessions, t, setNodes, setEdges])
+  }, [sessions, hermesSessions, t, setNodes, setEdges])
 
   return (
     <div className="m-4">
@@ -159,7 +223,12 @@ export function OrgChartPanel() {
         <h2 className="text-lg font-semibold text-foreground">{t('title')}</h2>
         {!loading && (
           <span className="text-xs text-muted-foreground">
-            {sessions.length === 0 ? t('noWorkers') : `${sessions.length} ${t('worker')}${sessions.length !== 1 ? 's' : ''}`}
+            {sessions.length === 0 && hermesSessions.length === 0
+              ? t('noWorkers')
+              : [
+                  sessions.length > 0 ? `${sessions.length} ${t('worker')}${sessions.length !== 1 ? 's' : ''}` : null,
+                  hermesSessions.length > 0 ? `${hermesSessions.length} hermes` : null,
+                ].filter(Boolean).join(' + ')}
           </span>
         )}
       </div>
@@ -172,6 +241,10 @@ export function OrgChartPanel() {
             <span className="text-xs text-muted-foreground capitalize">{t(s)}</span>
           </div>
         ))}
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full" style={{ background: '#14b8a6' }} />
+          <span className="text-xs text-muted-foreground">Hermes</span>
+        </div>
       </div>
 
       <div
