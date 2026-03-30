@@ -41,7 +41,7 @@ export async function register() {
   })
 
   // MC base URL for internal API calls — service runs on PORT (default 3001)
-  const MC_BASE = `http://localhost:${process.env.PORT || 3001}`
+  const MC_BASE = process.env.MC_URL || `http://localhost:${process.env.PORT || 3001}`
   // Internal auth via x-api-key header (auth.ts does NOT support Basic scheme)
   const MC_API_KEY = process.env.API_KEY || ''
 
