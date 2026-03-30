@@ -1,0 +1,11 @@
+▲ Next.js 16.1.6
+- Local:         http://127.0.0.1:3001
+- Network:       http://127.0.0.1:3001
+
+✓ Starting...
+✓ Ready in 226ms
+{"level":30,"time":1774785803002,"pid":12812,"hostname":"simpc","msg":"Auto-generated AUTH_SECRET (persisted to .data/.auto-generated)"}
+{"level":30,"time":1774785803003,"pid":12812,"hostname":"simpc","msg":"Auto-generated API_KEY (persisted to .data/.auto-generated)"}
+{"level":30,"time":1774785803295,"pid":12812,"hostname":"simpc","msg":"Seeded admin user: admin"}
+{"level":30,"time":1774785803300,"pid":12812,"hostname":"simpc","msg":"Database migrations applied successfully"}
+{"level":30,"time":1774785803311,"pid":12812,"hostname":"simpc","msg":"Scheduler initialized - backup at ~3AM, cleanup at ~4AM, heartbeat every 5m, webhook/claude/skill/local-agent/gateway-agent sync every 60s"}

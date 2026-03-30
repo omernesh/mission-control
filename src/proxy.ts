@@ -191,7 +191,12 @@ export function proxy(request: NextRequest) {
     // allowed to pass through proxy auth gate.
     const looksLikeAgentApiKey = /^mca_[a-f0-9]{48}$/i.test(apiKey)
 
-    if (sessionToken || hasValidApiKey || looksLikeAgentApiKey) {
+    // Hermes hook secret: validated in the route handler, let it pass proxy gate
+    const hookSecret = process.env.HERMES_HOOK_SECRET
+    const providedHookSecret = request.headers.get('x-hook-secret')
+    const hasValidHookSecret = Boolean(hookSecret && providedHookSecret && hookSecret === providedHookSecret)
+
+    if (sessionToken || hasValidApiKey || looksLikeAgentApiKey || hasValidHookSecret) {
       const { response, nonce } = nextResponseWithNonce(request)
       return addSecurityHeaders(response, request, nonce)
     }
