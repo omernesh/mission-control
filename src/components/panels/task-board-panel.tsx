@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useMissionControl, type Agent } from '@/store'
+import { useMissionControl, type Agent, type Task, type Comment } from '@/store'
 import { useSmartPoll } from '@/lib/use-smart-poll'
 
 import { createClientLogger } from '@/lib/client-logger'
@@ -18,45 +18,7 @@ import { SessionMessage, shouldShowTimestamp, type SessionTranscriptMessage } fr
 
 const log = createClientLogger('TaskBoard')
 
-interface Task {
-  id: number
-  title: string
-  description?: string
-  status: 'inbox' | 'assigned' | 'in_progress' | 'review' | 'quality_review' | 'done' | 'awaiting_owner'
-  priority: 'low' | 'medium' | 'high' | 'critical' | 'urgent'
-  assigned_to?: string
-  created_by: string
-  created_at: number
-  updated_at: number
-  due_date?: number
-  estimated_hours?: number
-  actual_hours?: number
-  tags?: string[]
-  metadata?: any
-  aegisApproved?: boolean
-  project_id?: number
-  project_ticket_no?: number
-  project_name?: string
-  project_prefix?: string
-  ticket_ref?: string
-  github_issue_number?: number
-  github_repo?: string
-  github_branch?: string
-  github_pr_number?: number
-  github_pr_state?: string
-}
-
-
-interface Comment {
-  id: number
-  task_id: number
-  author: string
-  content: string
-  created_at: number
-  parent_id?: number
-  mentions?: string[]
-  replies?: Comment[]
-}
+type BoardTask = Task & { aegisApproved?: boolean }
 
 interface Project {
   id: number
@@ -91,7 +53,7 @@ const AWAITING_OWNER_KEYWORDS = [
   'awaiting owner', 'awaiting human', 'needs owner',
 ]
 
-function detectAwaitingOwner(task: Task): boolean {
+function detectAwaitingOwner(task: BoardTask): boolean {
   if (task.status === 'awaiting_owner') return true
   if (task.status !== 'assigned' && task.status !== 'in_progress') return false
   const text = `${task.title} ${task.description || ''}`.toLowerCase()
@@ -340,6 +302,14 @@ function DunkItButton({ taskId, onDunked }: { taskId: number; onDunked: (id: num
     }
   }
 
+  const dunkStyles: Record<DunkPhase, { transform: string; borderColor: string; bg: string; color: string; label: string; cursor: string; opacity: number }> = {
+    idle:       { transform: 'scale(1)',                          borderColor: 'hsl(var(--border))',        bg: 'transparent',            color: 'inherit',           label: 'Dunk', cursor: 'pointer', opacity: 1 },
+    success:    { transform: 'scale(1.15)',                       borderColor: 'rgb(34 197 94 / 0.5)',      bg: 'rgb(34 197 94 / 0.15)',  color: 'rgb(34 197 94)',    label: '!',    cursor: 'default', opacity: 1 },
+    error:      { transform: 'scale(1)',                          borderColor: 'rgb(239 68 68 / 0.5)',      bg: 'rgb(239 68 68 / 0.15)',  color: 'rgb(239 68 68)',    label: '!!',   cursor: 'default', opacity: 1 },
+    dismissing: { transform: 'scale(0.8) translateY(-10px)',      borderColor: 'hsl(var(--border))',        bg: 'transparent',            color: 'inherit',           label: '!',    cursor: 'default', opacity: 0 },
+  }
+  const ds = dunkStyles[phase]
+
   return (
     <button
       onClick={handleClick}
@@ -350,16 +320,16 @@ function DunkItButton({ taskId, onDunked }: { taskId: number; onDunked: (id: num
         fontSize: '11px',
         borderRadius: '4px',
         border: '1px solid',
-        cursor: phase === 'idle' ? 'pointer' : 'default',
+        cursor: ds.cursor,
         transition: 'all 0.3s ease',
-        transform: phase === 'success' ? 'scale(1.15)' : phase === 'dismissing' ? 'scale(0.8) translateY(-10px)' : 'scale(1)',
-        opacity: phase === 'dismissing' ? 0 : 1,
-        borderColor: phase === 'success' ? 'rgb(34 197 94 / 0.5)' : phase === 'error' ? 'rgb(239 68 68 / 0.5)' : 'hsl(var(--border))',
-        backgroundColor: phase === 'success' ? 'rgb(34 197 94 / 0.15)' : phase === 'error' ? 'rgb(239 68 68 / 0.15)' : 'transparent',
-        color: phase === 'success' ? 'rgb(34 197 94)' : phase === 'error' ? 'rgb(239 68 68)' : 'inherit',
+        transform: ds.transform,
+        opacity: ds.opacity,
+        borderColor: ds.borderColor,
+        backgroundColor: ds.bg,
+        color: ds.color,
       }}
     >
-      {phase === 'success' ? '!' : phase === 'error' ? '!!' : phase === 'dismissing' ? '!' : 'Dunk'}
+      {ds.label}
     </button>
   )
 }
@@ -386,10 +356,10 @@ export function TaskBoardPanel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [aegisMap, setAegisMap] = useState<Record<number, boolean>>({})
-  const [draggedTask, setDraggedTask] = useState<Task | null>(null)
+  const [draggedTask, setDraggedTask] = useState<BoardTask | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showProjectManager, setShowProjectManager] = useState(false)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [editingTask, setEditingTask] = useState<BoardTask | null>(null)
   const [showSpawnForm, setShowSpawnForm] = useState(false)
   const [spawnFormData, setSpawnFormData] = useState<SpawnFormData>({
     task: '',
@@ -421,7 +391,7 @@ export function TaskBoardPanel() {
   }, [pathname, router, searchParams])
 
   // Augment store tasks with aegisApproved flag (computed, not stored)
-  const tasks: Task[] = storeTasks.map(t => ({
+  const tasks: BoardTask[] = storeTasks.map(t => ({
     ...t,
     aegisApproved: Boolean(aegisMap[t.id])
   }))
@@ -452,7 +422,7 @@ export function TaskBoardPanel() {
       const projectsData = await projectsResponse.json()
 
       const tasksList = tasksData.tasks || []
-      const taskIds = tasksList.map((task: Task) => task.id)
+      const taskIds = tasksList.map((task: BoardTask) => task.id)
 
       // Render primary board data first; hydrate Aegis approvals in background.
       storeSetTasks(tasksList)
@@ -545,10 +515,10 @@ export function TaskBoardPanel() {
       return effectiveStatus === column.key
     })
     return acc
-  }, {} as Record<string, Task[]>)
+  }, {} as Record<string, BoardTask[]>)
 
   // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, task: Task) => {
+  const handleDragStart = (e: React.DragEvent, task: BoardTask) => {
     setDraggedTask(task)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/html', e.currentTarget.outerHTML)
@@ -781,11 +751,7 @@ export function TaskBoardPanel() {
               {gnapStatus.taskCount != null && (
                 <span className="text-emerald-400/70">{gnapStatus.taskCount}</span>
               )}
-              {gnapSyncing && (
-                <svg className="w-3 h-3 animate-spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M8 1.5a6.5 6.5 0 1 1-4.5 2" />
-                </svg>
-              )}
+              {gnapSyncing && <span className="text-xs">...</span>}
             </button>
           )}
           <div className="relative">
@@ -801,9 +767,7 @@ export function TaskBoardPanel() {
                 </option>
               ))}
             </select>
-            <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 6l4 4 4-4" />
-            </svg>
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none leading-none">▾</span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -819,10 +783,7 @@ export function TaskBoardPanel() {
             {t('newTask')}
           </Button>
           <Button variant="ghost" size="icon-sm" onClick={fetchData} title={t('refresh')}>
-            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1.5 8a6.5 6.5 0 0 1 11.25-4.5M14.5 8a6.5 6.5 0 0 1-11.25 4.5" />
-              <path d="M13.5 2v3h-3M2.5 14v-3h3" />
-            </svg>
+            ↺
           </Button>
         </div>
       </div>
@@ -980,13 +941,17 @@ export function TaskBoardPanel() {
                           {task.title}
                         </h4>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {task.metadata?.recurrence?.enabled && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-mono" title={task.metadata.recurrence.natural_text || task.metadata.recurrence.cron_expr}>
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                          {(task.metadata as any)?.recurrence?.enabled && (
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-mono" title={(task.metadata as any).recurrence.natural_text || (task.metadata as any).recurrence.cron_expr}>
                               {t('recurring')}
                             </span>
                           )}
-                          {task.metadata?.recurrence?.parent_task_id && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 font-mono" title={t('spawnedFromTask', { id: task.metadata.recurrence.parent_task_id })}>
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                          {(task.metadata as any)?.recurrence?.parent_task_id && (
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 font-mono" title={t('spawnedFromTask', { id: (task.metadata as any).recurrence.parent_task_id })}>
                               {t('spawned')}
                             </span>
                           )}
@@ -1004,7 +969,6 @@ export function TaskBoardPanel() {
                               onClick={(e) => e.stopPropagation()}
                               title={`GitHub issue #${task.github_issue_number}`}
                             >
-                              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
                               #{task.github_issue_number}
                             </a>
                           )}
@@ -1021,7 +985,6 @@ export function TaskBoardPanel() {
                               onClick={(e) => e.stopPropagation()}
                               title={`PR #${task.github_pr_number} (${task.github_pr_state || 'open'})`}
                             >
-                              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"/></svg>
                               PR #{task.github_pr_number}
                             </a>
                           )}
@@ -1107,10 +1070,7 @@ export function TaskBoardPanel() {
               {/* Empty State */}
               {tasksByStatus[column.key]?.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/30">
-                  <svg className="w-8 h-8 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <path d="M9 12h6M12 9v6" strokeLinecap="round" />
-                  </svg>
+                  <span className="text-3xl mb-2">+</span>
                   <span className="text-xs">{t('dropTasksHere')}</span>
                 </div>
               )}
@@ -1186,12 +1146,12 @@ function TaskDetailModal({
   onEdit,
   onDelete
 }: {
-  task: Task
+  task: BoardTask
   agents: Agent[]
   projects: Project[]
   onClose: () => void
   onUpdate: () => void
-  onEdit: (task: Task) => void
+  onEdit: (task: BoardTask) => void
   onDelete: () => void
 }) {
   const t = useTranslations('taskBoard')
@@ -1458,7 +1418,7 @@ function TaskDetailModal({
                 {tab === 'details' ? t('tabDetails') : tab === 'comments' ? t('tabComments') : t('tabQualityReview')}
               </Button>
             ))}
-            {task.metadata?.dispatch_session_id && (
+            {(task.metadata as any)?.dispatch_session_id && (
               <Button
                 role="tab"
                 size="sm"
@@ -1557,7 +1517,7 @@ function TaskDetailModal({
                   )}
                 </>
               )}
-              {task.metadata?.dispatch_session_id && (
+              {(task.metadata as any)?.dispatch_session_id && (
                 <>
                   <div className="col-span-2 mt-2 pt-2 border-t border-border/50">
                     <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Agent Session</span>
@@ -1569,7 +1529,7 @@ function TaskDetailModal({
                       onClick={() => setActiveTab('session')}
                       className="font-mono text-xs"
                     >
-                      View Session {task.metadata.dispatch_session_id.slice(0, 8)}...
+                      View Session {(task.metadata as any).dispatch_session_id.slice(0, 8)}...
                     </Button>
                     {task.status === 'in_progress' && (
                       <span className="ml-2 text-xs text-green-400 animate-pulse">{t('live')}</span>
@@ -1711,10 +1671,10 @@ function TaskDetailModal({
             </div>
           )}
 
-          {activeTab === 'session' && task.metadata?.dispatch_session_id && (
+          {activeTab === 'session' && (task.metadata as any)?.dispatch_session_id && (
             <div id="tabpanel-session" role="tabpanel" aria-label="Session" className="mt-4">
               <TaskSessionFeed
-                sessionId={task.metadata.dispatch_session_id}
+                sessionId={(task.metadata as any).dispatch_session_id}
                 agentName={task.assigned_to}
                 isLive={task.status === 'in_progress'}
               />
@@ -2228,7 +2188,7 @@ function EditTaskModal({
   onClose,
   onUpdated
 }: {
-  task: Task
+  task: BoardTask
   agents: Agent[]
   projects: Project[]
   onClose: () => void
@@ -2243,7 +2203,8 @@ function EditTaskModal({
     project_id: task.project_id ? String(task.project_id) : (projects[0]?.id ? String(projects[0].id) : ''),
     assigned_to: task.assigned_to || '',
     tags: task.tags ? task.tags.join(', ') : '',
-    target_session: task.metadata?.target_session || '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    target_session: (task.metadata as any)?.target_session || '',
   })
   const mentionTargets = useMentionTargets()
   const agentSessions = useAgentSessions(formData.assigned_to || undefined)
@@ -2254,7 +2215,8 @@ function EditTaskModal({
     if (!formData.title.trim()) return
 
     try {
-      const existingMeta = task.metadata || {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existingMeta = (task.metadata as any) || {}
       const updatedMeta = { ...existingMeta }
       if (formData.target_session) {
         updatedMeta.target_session = formData.target_session

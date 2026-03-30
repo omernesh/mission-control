@@ -117,6 +117,7 @@ const navItemTranslationKeys: Record<string, string> = {
   'org-chart': 'orgChart',
   'standup-reports': 'standupReports',
   'memory-graph': 'memoryGraph',
+  monitor: 'monitor',
 }
 
 // Map group IDs to translation keys in the 'nav.group' namespace

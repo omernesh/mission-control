@@ -98,7 +98,7 @@ export function StandupReportsPanel() {
     <div className="m-4">
       {/* Header + search */}
       <div className="flex items-center justify-between gap-4 mb-4">
-        <h2 className="text-lg font-semibold text-foreground">Standup Reports</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t('title')}</h2>
         {total > 0 && (
           <span className="text-xs text-muted-foreground">{t('total')}: {total}</span>
         )}

@@ -16,7 +16,7 @@ export interface ClaudiosSessionData {
  * Bridge Claudios session token data into the token_usage table.
  *
  * - Uses session_id = "claudios:{session.id}" to avoid collision with OpenClaw sessions
- * - Deduplicates: if (session_id + model) already exists, skips the insert
+ * - Upserts: if (session_id + model) already exists, updates with MAX() to keep highest token counts
  * - Skips sessions with zero tokens
  *
  * @returns Number of newly inserted rows

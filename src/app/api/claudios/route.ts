@@ -264,15 +264,17 @@ export async function GET(request: NextRequest) {
           signal: AbortSignal.timeout(claudiosConfig.longFetchTimeoutMs),
         })
         if (!res.ok) throw new Error(`Session Manager returned ${res.status}`)
-        const data = await res.json() as Array<{
-          id: string
-          model?: string
-          inputTokens?: number
-          outputTokens?: number
-          totalTokens?: number
-          status?: string
-        }>
-        const sessions = Array.isArray(data) ? data : []
+        const data = await res.json() as {
+          sessions: Array<{
+            id: string
+            model?: string
+            inputTokens?: number
+            outputTokens?: number
+            totalTokens?: number
+            status?: string
+          }>
+        }
+        const sessions = Array.isArray(data.sessions) ? data.sessions : []
         const { ingestClaudiosTokens } = await import('@/lib/token-ingest')
         const synced = ingestClaudiosTokens(sessions.map(s => ({
           id: s.id,

@@ -233,14 +233,7 @@ export function OverviewTab({
             {editing ? (
               <>
                 <Button onClick={onSave} size="sm" disabled={saveBusy}>
-                  {saveBusy ? (
-                    <span className="flex items-center gap-1.5">
-                      <svg className="w-3 h-3 animate-spin" viewBox="0 0 16 16" fill="none">
-                        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="28" strokeDashoffset="8" />
-                      </svg>
-                      {t('saving')}
-                    </span>
-                  ) : t('save')}
+                  {saveBusy ? `... ${t('saving')}` : t('save')}
                 </Button>
                 <Button onClick={onCancel} variant="secondary" size="sm" disabled={saveBusy}>{t('cancel')}</Button>
               </>
@@ -610,11 +603,8 @@ export function TasksTab({ agent }: { agent: Agent }) {
 
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
-          <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mb-2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <rect x="3" y="2" width="10" height="12" rx="1" />
-              <path d="M6 6h4M6 9h3" />
-            </svg>
+          <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mb-2 text-xl">
+            📋
           </div>
           <p className="text-sm">{t('noTasksAssigned')}</p>
         </div>
@@ -720,10 +710,8 @@ export function ActivityTab({ agent }: { agent: Agent }) {
       
       {activities.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
-          <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mb-2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M2 4h12M2 8h8M2 12h10" />
-            </svg>
+          <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mb-2 text-xl">
+            📄
           </div>
           <p className="text-sm">{t('noRecentActivity')}</p>
         </div>
@@ -852,7 +840,7 @@ export function CreateAgentModal({
           emoji: tmpl.emoji,
           modelTier: tmpl.modelTier,
           modelPrimary: DEFAULT_MODEL_BY_TIER[tmpl.modelTier],
-          workspaceAccess: type === 'researcher' || type === 'content-creator' ? 'none' : type === 'reviewer' || type === 'security-auditor' ? 'ro' : 'rw',
+          workspaceAccess: ((): 'rw' | 'ro' | 'none' => { const workspaceAccessMap: Record<string, 'rw' | 'ro' | 'none'> = { researcher: 'none', 'content-creator': 'none', reviewer: 'ro', 'security-auditor': 'ro' }; return workspaceAccessMap[type] ?? 'rw' })(),
           sandboxMode: type === 'orchestrator' ? 'non-main' : 'all',
           dockerNetwork: type === 'developer' || type === 'specialist-dev' ? 'bridge' : 'none',
         }))

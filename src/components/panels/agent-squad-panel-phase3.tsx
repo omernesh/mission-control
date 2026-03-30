@@ -24,7 +24,7 @@ import {
 } from './agent-detail-tabs'
 import { formatModelName, buildTaskStatParts } from '@/lib/agent-card-helpers'
 import { useMissionControl, type Agent } from '@/store'
-import { type WorkItem, type HeartbeatResponse, type SoulTemplate, statusColors } from '@/lib/types/agent-shared'
+import { type WorkItem, type HeartbeatResponse, type SoulTemplate, statusColors, statusIcons } from '@/lib/types/agent-shared'
 
 const log = createClientLogger('AgentSquadPhase3')
 
@@ -37,12 +37,6 @@ const statusBadgeStyles: Record<string, string> = {
   error: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
 }
 
-const statusIcons: Record<string, string> = {
-  offline: '-',
-  idle: 'o',
-  busy: '~',
-  error: '!',
-}
 
 const defaultCardStyle = {
   edge: 'from-slate-400/60 to-slate-600/30',
@@ -653,11 +647,8 @@ export function AgentSquadPanelPhase3() {
       <div className="flex-1 p-4 overflow-y-auto">
         {agents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50">
-            <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center mb-3">
-              <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="8" cy="5" r="3" />
-                <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-              </svg>
+            <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center mb-3 text-2xl">
+              ◯
             </div>
             <p className="text-sm font-medium">{t('noAgents')}</p>
             <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs text-center">
@@ -1145,9 +1136,7 @@ function AgentDetailModalPhase3({
                   title="Delete agent"
                   onClick={() => setShowDeleteMenu(prev => !prev)}
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 4h12M5.33 4V2.67a1.33 1.33 0 0 1 1.34-1.34h2.66a1.33 1.33 0 0 1 1.34 1.34V4M12.67 4v9.33a1.33 1.33 0 0 1-1.34 1.34H4.67a1.33 1.33 0 0 1-1.34-1.34V4" />
-                  </svg>
+                  🗑
                 </Button>
                 {showDeleteMenu && (
                   <div className="absolute right-0 top-full mt-1 flex flex-col gap-1 bg-card border border-border rounded-md shadow-xl p-1.5 z-10 min-w-[180px]">
@@ -1156,28 +1145,14 @@ function AgentDetailModalPhase3({
                       disabled={deleteBusy}
                       className="text-left text-xs px-2.5 py-1.5 rounded text-rose-300 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
                     >
-                      {deleteBusy ? (
-                        <span className="flex items-center gap-1.5">
-                          <svg className="w-3 h-3 animate-spin" viewBox="0 0 16 16" fill="none">
-                            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="28" strokeDashoffset="8" />
-                          </svg>
-                          Deleting...
-                        </span>
-                      ) : 'Delete agent'}
+                      {deleteBusy ? '... Deleting...' : 'Delete agent'}
                     </button>
                     <button
                       onClick={() => handleDelete(true)}
                       disabled={deleteBusy}
                       className="text-left text-xs px-2.5 py-1.5 rounded text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
                     >
-                      {deleteBusy ? (
-                        <span className="flex items-center gap-1.5">
-                          <svg className="w-3 h-3 animate-spin" viewBox="0 0 16 16" fill="none">
-                            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="28" strokeDashoffset="8" />
-                          </svg>
-                          Deleting...
-                        </span>
-                      ) : 'Delete agent + workspace'}
+                      {deleteBusy ? '... Deleting...' : 'Delete agent + workspace'}
                     </button>
                   </div>
                 )}
@@ -1189,9 +1164,7 @@ function AgentDetailModalPhase3({
                 size="icon-sm"
                 className="text-muted-foreground hover:text-foreground"
               >
-                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M4 4l8 8M12 4l-8 8" />
-                </svg>
+                ×
               </Button>
             </div>
           </div>
