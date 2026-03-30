@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { requireRole } from '@/lib/auth'
 import { db_helpers } from '@/lib/db'
 import { logger } from '@/lib/logger'
+
+interface HermesEventBody {
+  event: string
+  source?: string
+  [key: string]: unknown
+}
 
 const EVENT_TYPE_MAP: Record<string, string> = {
   'session:start': 'hermes_session_start',
@@ -29,15 +36,21 @@ export async function POST(request: NextRequest) {
   // Auth: accept either a valid API key/session OR the HERMES_HOOK_SECRET shared secret
   const hookSecret = process.env.HERMES_HOOK_SECRET
   const providedSecret = request.headers.get('x-hook-secret')
-  const isHookAuth = hookSecret && providedSecret && hookSecret === providedSecret
+  const isHookAuth = hookSecret && providedSecret &&
+    hookSecret.length === providedSecret.length &&
+    timingSafeEqual(Buffer.from(hookSecret), Buffer.from(providedSecret))
   if (!isHookAuth) {
     const auth = requireRole(request, 'viewer')
     if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
 
   try {
-    const body = await request.json()
-    const { event, source, ...rest } = body
+    const body = await request.json() as HermesEventBody
+    const bodyStr = JSON.stringify(body)
+    if (bodyStr.length > 8192) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 })
+    }
+    const { event, source } = body
 
     if (!event || typeof event !== 'string') {
       return NextResponse.json({ error: 'Missing required field: event' }, { status: 400 })

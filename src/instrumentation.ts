@@ -1,3 +1,7 @@
+declare global {
+  var __claudiosPolling: boolean | undefined
+}
+
 /**
  * Next.js startup hook — initializes Claudios integration on server start.
  *
@@ -33,12 +37,16 @@ export async function register() {
 
   // 2. Register Claudios orchestrator agent (eventBus broadcast only — no SQLite write)
   const adapter = new ClaudiosAdapter()
-  await adapter.register({
-    agentId: 'claudios-orchestrator',
-    name: 'Claudios',
-    framework: 'claudios',
-    metadata: { role: 'orchestrator', description: 'VP R&D — orchestrates all Claude Code sessions' },
-  })
+  try {
+    await adapter.register({
+      agentId: 'claudios-orchestrator',
+      name: 'Claudios',
+      framework: 'claudios',
+      metadata: { role: 'orchestrator', description: 'VP R&D — orchestrates all Claude Code sessions' },
+    })
+  } catch (err) {
+    console.error('[claudios] Failed to register orchestrator agent:', err instanceof Error ? err.message : String(err))
+  }
 
   // MC base URL for internal API calls — service runs on PORT (default 3001)
   const MC_BASE = process.env.MC_URL || `http://localhost:${process.env.PORT || 3001}`
@@ -101,7 +109,7 @@ export async function register() {
 
           if (createRes.status === 409) {
             // Agent already exists — update status + config via PUT
-            await fetch(`${MC_BASE}/api/agents`, {
+            const updateRes = await fetch(`${MC_BASE}/api/agents`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -114,25 +122,31 @@ export async function register() {
               }),
               signal: AbortSignal.timeout(3000),
             })
+            if (!updateRes.ok) {
+              console.warn(`[claudios] PUT /api/agents failed for ${agentName}: ${updateRes.status}`)
+            }
+          } else if (!createRes.ok) {
+            console.warn(`[claudios] POST /api/agents failed for ${agentName}: ${createRes.status}`)
+            continue
           }
         } catch (upsertErr) {
           // Log but don't fail the whole poll — one bad session shouldn't block others
           console.error(
             `[claudios] Failed to upsert agent for session ${session.id}:`,
-            (upsertErr as Error).message
+            upsertErr instanceof Error ? upsertErr.message : String(upsertErr)
           )
         }
       }
 
       console.log(`[claudios] Poll complete: ${sessions.length} sessions`)
     } catch (err) {
-      console.error('[claudios] Poll error:', (err as Error).message)
+      console.error('[claudios] Poll error:', err instanceof Error ? err.message : String(err))
     }
   }
 
   // HMR guard: only register one polling loop per process lifetime
-  if (!(globalThis as any).__claudiosPolling) {
-    (globalThis as any).__claudiosPolling = true
+  if (!globalThis.__claudiosPolling) {
+    globalThis.__claudiosPolling = true
 
     // Run initial poll immediately, then every pollIntervalMs (default 10s)
     poll()
@@ -142,10 +156,11 @@ export async function register() {
 
     // Cleanup on graceful shutdown
     const cleanup = () => {
+      globalThis.__claudiosPolling = false
       clearInterval(timer)
       claudiosBridge.stop()
     }
-    process.on('SIGTERM', cleanup)
-    process.on('SIGINT', cleanup)
+    process.once('SIGTERM', cleanup)
+    process.once('SIGINT', cleanup)
   }
 }

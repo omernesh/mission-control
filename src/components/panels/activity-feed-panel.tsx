@@ -14,7 +14,7 @@ interface Activity {
   entity_id: number
   actor: string
   description: string
-  data?: any
+  data?: Record<string, unknown>
   created_at: number
   entity?: {
     type: string
@@ -207,7 +207,7 @@ function TimelineRow({ activity }: { activity: Activity }) {
         <p className="text-xs text-foreground">{activity.description}</p>
         {activity.entity?.title && (
           <p className="text-2xs text-muted-foreground mt-0.5 truncate">
-            {activity.entity.type === 'task' ? `${activity.entity.title}` : activity.entity.title}
+            {activity.entity.title}
           </p>
         )}
       </div>
@@ -303,8 +303,8 @@ export function ActivityFeedPanel() {
       if (!res.ok) return
       const data = await res.json()
       setSessions(data.sessions || [])
-    } catch {
-      /* silent */
+    } catch (err) {
+      console.warn('[activity-feed] Failed to fetch sessions:', err instanceof Error ? err.message : String(err))
     }
   }, [])
 
@@ -410,7 +410,7 @@ export function ActivityFeedPanel() {
             <label className="block text-xs text-muted-foreground mb-1">{t('filterLimit')}</label>
             <select
               value={filter.limit}
-              onChange={(e) => setFilter((prev) => ({ ...prev, limit: parseInt(e.target.value) }))}
+              onChange={(e) => setFilter((prev) => ({ ...prev, limit: parseInt(e.target.value, 10) || 50 }))}
               className="bg-surface-2 text-foreground text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/50 border border-border"
             >
               <option value={25}>25</option>

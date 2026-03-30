@@ -53,15 +53,15 @@ function getRequestHostCandidates(request: NextRequest): string[] {
   return [...new Set(candidates)]
 }
 
-function getImplicitAllowedHosts(): string[] {
-  const candidates = [
-    'localhost',
-    '127.0.0.1',
-    '::1',
-    normalizeHostname(os.hostname()),
-  ].filter(Boolean)
+const _cachedHostname = normalizeHostname(os.hostname())
+const _parsedAllowedHosts = String(process.env.MC_ALLOWED_HOSTS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+const _implicitAllowedHosts = [...new Set(['localhost', '127.0.0.1', '::1', _cachedHostname].filter(Boolean))]
 
-  return [...new Set(candidates)]
+function getImplicitAllowedHosts(): string[] {
+  return _implicitAllowedHosts
 }
 
 function hostMatches(pattern: string, hostname: string): boolean {
@@ -136,10 +136,7 @@ export function proxy(request: NextRequest) {
   // In dev/test: allow all hosts unless overridden.
   const requestHosts = getRequestHostCandidates(request)
   const allowAnyHost = envFlag('MC_ALLOW_ANY_HOST') || process.env.NODE_ENV !== 'production'
-  const allowedPatterns = String(process.env.MC_ALLOWED_HOSTS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
+  const allowedPatterns = _parsedAllowedHosts
   const implicitAllowedHosts = getImplicitAllowedHosts()
 
   const enforceAllowlist = !allowAnyHost && allowedPatterns.length > 0
@@ -161,7 +158,9 @@ export function proxy(request: NextRequest) {
     const origin = request.headers.get('origin')
     if (origin) {
       let originHost: string
-      try { originHost = new URL(origin).host } catch { originHost = '' }
+      try { originHost = new URL(origin).host } catch {
+        return addSecurityHeaders(NextResponse.json({ error: 'Invalid Origin header' }, { status: 400 }), request)
+      }
       const requestHost = request.headers.get('host')?.split(',')[0]?.trim()
         || request.nextUrl.host
         || ''
@@ -194,7 +193,7 @@ export function proxy(request: NextRequest) {
     // Hermes hook secret: validated in the route handler, let it pass proxy gate
     const hookSecret = process.env.HERMES_HOOK_SECRET
     const providedHookSecret = request.headers.get('x-hook-secret')
-    const hasValidHookSecret = Boolean(hookSecret && providedHookSecret && hookSecret === providedHookSecret)
+    const hasValidHookSecret = Boolean(hookSecret && providedHookSecret && safeCompare(providedHookSecret, hookSecret))
 
     if (sessionToken || hasValidApiKey || looksLikeAgentApiKey || hasValidHookSecret) {
       const { response, nonce } = nextResponseWithNonce(request)

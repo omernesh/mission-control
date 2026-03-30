@@ -21,6 +21,8 @@ interface HermesSession {
   title: string | null
 }
 
+const HERMES_COLOR = '#14b8a6'
+
 function statusColor(status: string): string {
   switch (status?.toLowerCase()) {
     case 'active': return '#22c55e'
@@ -87,8 +89,8 @@ function buildOrgNodes(workers: Session[], hermesSessions: HermesSession[], t: R
     position: { x: hermesStartX + i * hermesSpacing, y: 380 },
     data: { label: h.title || h.source || h.sessionId.slice(0, 8) },
     style: {
-      background: h.isActive ? '#14b8a622' : '#6b728022',
-      border: `1px solid ${h.isActive ? '#14b8a666' : '#6b728066'}`,
+      background: h.isActive ? `${HERMES_COLOR}22` : '#6b728022',
+      border: `1px solid ${h.isActive ? `${HERMES_COLOR}66` : '#6b728066'}`,
       color: 'hsl(var(--foreground))',
       borderRadius: '8px',
       padding: '6px 12px',
@@ -140,7 +142,7 @@ function buildOrgNodes(workers: Session[], hermesSessions: HermesSession[], t: R
     target: `hermes-${h.sessionId}`,
     animated: h.isActive,
     style: {
-      stroke: h.isActive ? '#14b8a6' : '#6b7280',
+      stroke: h.isActive ? HERMES_COLOR : '#6b7280',
       strokeWidth: 1.5,
       opacity: 0.7,
     },
@@ -189,7 +191,10 @@ export function OrgChartPanel() {
   const fetchHermesSessions = useCallback(async () => {
     try {
       const res = await fetch('/api/sessions')
-      if (!res.ok) return
+      if (!res.ok) {
+        console.warn('[org-chart] /api/sessions returned', res.status)
+        return
+      }
       const data = await res.json()
       const hermesOnly = (data.sessions || [])
         .filter((s: { kind?: string }) => s.kind === 'hermes')
@@ -242,7 +247,7 @@ export function OrgChartPanel() {
           </div>
         ))}
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full" style={{ background: '#14b8a6' }} />
+          <div className="w-2 h-2 rounded-full" style={{ background: HERMES_COLOR }} />
           <span className="text-xs text-muted-foreground">Hermes</span>
         </div>
       </div>

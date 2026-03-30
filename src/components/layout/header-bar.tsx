@@ -69,6 +69,9 @@ export function HeaderBar() {
 
   useEffect(() => {
     setIsMounted(true)
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    }
   }, [])
 
   const getQuickNavResults = useCallback((q: string): SearchResult[] => {
@@ -257,12 +260,14 @@ export function HeaderBar() {
     setSearchLoading(true)
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=12`)
+      if (!res.ok) throw new Error(`Search API returned ${res.status}`)
       const data = await res.json()
       const entityResults: SearchResult[] = (data.results || []).map((r: SearchResult) => ({ ...r, source: 'entity' }))
       const merged = [...quickResults, ...entityResults].slice(0, 16)
       setSearchResults(merged)
       setSelectedIndex(0)
-    } catch {
+    } catch (err) {
+      console.warn('[header] Search failed:', err instanceof Error ? err.message : String(err))
       setSearchResults(quickResults)
       setSelectedIndex(0)
     } finally {
