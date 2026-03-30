@@ -23,6 +23,12 @@ interface HermesSession {
 
 const HERMES_COLOR = '#14b8a6'
 
+const NODE_Y = { owner: 0, chief: 120, vp: 240, workers: 380 } as const
+const NODE_SPACING = 160
+const WORKER_OFFSET_X = 300
+const BASE_NODE_STYLE = { borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: '#fff', fontWeight: 500 } as const
+const LEAF_NODE_STYLE = { borderRadius: '10px', padding: '8px 12px', fontSize: '12px', color: '#fff' } as const
+
 function statusColor(status: string): string {
   switch (status?.toLowerCase()) {
     case 'active': return '#22c55e'
@@ -36,86 +42,72 @@ function buildOrgNodes(workers: Session[], hermesSessions: HermesSession[], t: R
   const staticNodes: Node[] = [
     {
       id: 'omer',
-      position: { x: 300, y: 0 },
+      position: { x: 300, y: NODE_Y.owner },
       data: { label: t('owner') },
       type: 'input',
       style: {
+        ...BASE_NODE_STYLE,
         background: 'hsl(var(--primary) / 0.1)',
         border: '1px solid hsl(var(--primary) / 0.4)',
         color: 'hsl(var(--foreground))',
-        borderRadius: '8px',
-        padding: '8px 16px',
-        fontSize: '13px',
         fontWeight: 600,
       },
     },
     {
       id: 'sammie',
-      position: { x: 300, y: 120 },
+      position: { x: 300, y: NODE_Y.chief },
       data: { label: t('chiefOfStaff') },
       style: {
+        ...BASE_NODE_STYLE,
         background: 'rgba(59, 130, 246, 0.1)',
         border: '1px solid rgba(59, 130, 246, 0.4)',
         color: 'hsl(var(--foreground))',
-        borderRadius: '8px',
-        padding: '8px 16px',
-        fontSize: '13px',
-        fontWeight: 500,
       },
     },
     {
       id: 'claudios',
-      position: { x: 300, y: 240 },
+      position: { x: 300, y: NODE_Y.vp },
       data: { label: t('vpRnd') },
       style: {
+        ...BASE_NODE_STYLE,
         background: 'rgba(168, 85, 247, 0.1)',
         border: '1px solid rgba(168, 85, 247, 0.4)',
         color: 'hsl(var(--foreground))',
-        borderRadius: '8px',
-        padding: '8px 16px',
-        fontSize: '13px',
-        fontWeight: 500,
       },
     },
   ]
 
   // Hermes nodes: positioned left, connected to Sammie
-  const hermesSpacing = 160
-  const hermesTotalWidth = Math.max(0, (hermesSessions.length - 1) * hermesSpacing)
+  const hermesTotalWidth = Math.max(0, (hermesSessions.length - 1) * NODE_SPACING)
   const hermesStartX = hermesSessions.length > 0 ? 50 : 0
 
   const hermesNodes: Node[] = hermesSessions.map((h, i) => ({
     id: `hermes-${h.sessionId}`,
-    position: { x: hermesStartX + i * hermesSpacing, y: 380 },
+    position: { x: hermesStartX + i * NODE_SPACING, y: NODE_Y.workers },
     data: { label: h.title || h.source || h.sessionId.slice(0, 8) },
     style: {
+      ...LEAF_NODE_STYLE,
       background: h.isActive ? `${HERMES_COLOR}22` : '#6b728022',
       border: `1px solid ${h.isActive ? `${HERMES_COLOR}66` : '#6b728066'}`,
       color: 'hsl(var(--foreground))',
-      borderRadius: '8px',
-      padding: '6px 12px',
-      fontSize: '12px',
     },
   }))
 
   // Claudios workers: positioned right, connected to Claudios
   const workerCount = workers.length
-  const workerSpacing = 160
-  const workerOffsetX = hermesSessions.length > 0 ? hermesStartX + hermesTotalWidth + 300 : 300
-  const totalWidth = Math.max(0, (workerCount - 1) * workerSpacing)
+  const workerOffsetX = hermesSessions.length > 0 ? hermesStartX + hermesTotalWidth + WORKER_OFFSET_X : WORKER_OFFSET_X
+  const totalWidth = Math.max(0, (workerCount - 1) * NODE_SPACING)
   const startX = workerOffsetX - totalWidth / 2
 
   const workerNodes: Node[] = workers.map((w, i) => ({
     id: w.id,
-    position: { x: startX + i * workerSpacing, y: 380 },
+    position: { x: startX + i * NODE_SPACING, y: NODE_Y.workers },
     data: { label: w.nickname || w.hostname || w.id.slice(0, 8) },
     style: {
+      ...LEAF_NODE_STYLE,
       background: `${statusColor(w.status)}22`,
       border: `1px solid ${statusColor(w.status)}66`,
       color: 'hsl(var(--foreground))',
-      borderRadius: '8px',
-      padding: '6px 12px',
-      fontSize: '12px',
     },
   }))
 
@@ -171,6 +163,7 @@ export function OrgChartPanel() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [hermesSessions, setHermesSessions] = useState<HermesSession[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[])
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[])
 
@@ -181,7 +174,8 @@ export function OrgChartPanel() {
       const data = await res.json()
       setSessions(data.sessions || [])
     } catch (err) {
-      console.error('[org-chart] Failed to load sessions:', err)
+      console.error('[org-chart] Failed to fetch sessions:', err)
+      setError('Failed to load sessions')
       setSessions([])
     } finally {
       setLoading(false)
@@ -206,7 +200,8 @@ export function OrgChartPanel() {
         }))
       setHermesSessions(hermesOnly)
     } catch (err) {
-      console.error('[org-chart] Failed to load hermes sessions:', err)
+      console.error('[org-chart] Failed to fetch sessions:', err)
+      setError('Failed to load sessions')
       setHermesSessions([])
     }
   }, [])
@@ -231,7 +226,7 @@ export function OrgChartPanel() {
             {sessions.length === 0 && hermesSessions.length === 0
               ? t('noWorkers')
               : [
-                  sessions.length > 0 ? `${sessions.length} ${t('worker')}${sessions.length !== 1 ? 's' : ''}` : null,
+                  sessions.length > 0 ? `${sessions.length} ${sessions.length === 1 ? t('worker') : t('worker') + 's'}` : null,
                   hermesSessions.length > 0 ? `${hermesSessions.length} hermes` : null,
                 ].filter(Boolean).join(' + ')}
           </span>
@@ -251,6 +246,8 @@ export function OrgChartPanel() {
           <span className="text-xs text-muted-foreground">Hermes</span>
         </div>
       </div>
+
+      {error && <div className="text-red-400 text-sm p-2">{error}</div>}
 
       <div
         className="rounded-lg border border-border overflow-hidden"

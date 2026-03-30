@@ -54,6 +54,21 @@ const activityIcons: Record<string, string> = {
   hermes_event: 'H',
 }
 
+function statusDotColor(status: string): string {
+  switch (status) {
+    case 'busy': return 'bg-emerald-400'
+    case 'idle': return 'bg-amber-400'
+    case 'error': return 'bg-red-400'
+    default: return 'bg-zinc-500'
+  }
+}
+
+function timelineBorderColor(type: string): string {
+  if (type === 'agent_status_change') return 'border-purple-500'
+  if (type.startsWith('task')) return 'border-blue-500'
+  return 'border-zinc-600'
+}
+
 const activityColors: Record<string, string> = {
   task_created: 'text-green-400',
   task_updated: 'text-blue-400',
@@ -70,6 +85,12 @@ const activityColors: Record<string, string> = {
   hermes_agent_end: 'text-emerald-400',
   hermes_event: 'text-teal-400',
 }
+
+const activityBgColors: Record<string, string> = Object.fromEntries(
+  Object.entries(activityColors).map(([k, v]) => [k, v.replace('text-', 'bg-').replace('-400', '-500/15')])
+)
+
+const POLL_INTERVAL_MS = 30_000
 
 function formatRelativeTime(timestamp: number) {
   const now = Date.now()
@@ -107,9 +128,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
       <div className="flex items-start gap-3">
         <div
           className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-            activityColors[activity.type]
-              ?.replace('text-', 'bg-')
-              .replace('-400', '-500/15') || 'bg-surface-2'
+            activityBgColors[activity.type] || 'bg-surface-2'
           } ${activityColors[activity.type] || 'text-muted-foreground'}`}
         >
           {activityIcons[activity.type] || '•'}
@@ -190,13 +209,7 @@ function TimelineRow({ activity }: { activity: Activity }) {
   return (
     <div className="flex items-start gap-2.5 pl-3 py-1.5 hover:bg-secondary/30 rounded-r-lg transition-smooth relative">
       <span
-        className={`absolute -left-[5px] top-3 w-2 h-2 rounded-full bg-card border-2 ${
-          activity.type === 'agent_status_change'
-            ? 'border-yellow-400'
-            : activity.type.startsWith('task')
-              ? 'border-blue-400'
-              : 'border-muted-foreground'
-        }`}
+        className={`absolute -left-[5px] top-3 w-2 h-2 rounded-full bg-card border-2 ${timelineBorderColor(activity.type)}`}
       />
       <span
         className={`w-5 h-5 rounded bg-secondary flex items-center justify-center text-2xs font-mono font-bold shrink-0 ${activityColors[activity.type] || 'text-muted-foreground'}`}
@@ -294,13 +307,16 @@ export function ActivityFeedPanel() {
     fetchActivities(isAgentView ? undefined : lastRefreshRef.current)
   }, [fetchActivities, isAgentView])
 
-  useSmartPoll(pollActivities, 30000, { enabled: autoRefresh, pauseWhenSseConnected: true })
+  useSmartPoll(pollActivities, POLL_INTERVAL_MS, { enabled: autoRefresh, pauseWhenSseConnected: true })
 
   // ── Fetch sessions (for agent sidebar) ────────
   const fetchSessions = useCallback(async () => {
     try {
       const res = await fetch('/api/sessions')
-      if (!res.ok) return
+      if (!res.ok) {
+        console.warn('[activity-feed] Session fetch returned', res.status)
+        return
+      }
       const data = await res.json()
       setSessions(data.sessions || [])
     } catch (err) {
@@ -372,15 +388,7 @@ export function ActivityFeedPanel() {
                   className="flex items-center gap-1"
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      a.status === 'busy'
-                        ? 'bg-green-500'
-                        : a.status === 'idle'
-                          ? 'bg-yellow-500'
-                          : a.status === 'error'
-                            ? 'bg-red-500'
-                            : 'bg-muted-foreground/30'
-                    }`}
+                    className={`w-1.5 h-1.5 rounded-full ${statusDotColor(a.status)}`}
                   />
                   {a.name}
                 </Button>
@@ -485,15 +493,7 @@ export function ActivityFeedPanel() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{t('agentStatus')}</span>
                       <span
-                        className={`font-medium ${
-                          selectedAgentData.status === 'busy'
-                            ? 'text-green-400'
-                            : selectedAgentData.status === 'idle'
-                              ? 'text-yellow-400'
-                              : selectedAgentData.status === 'error'
-                                ? 'text-red-400'
-                                : 'text-muted-foreground'
-                        }`}
+                        className={`font-medium ${statusDotColor(selectedAgentData.status).replace('bg-', 'text-')}`}
                       >
                         {selectedAgentData.status}
                       </span>

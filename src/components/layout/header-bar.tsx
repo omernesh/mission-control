@@ -43,6 +43,13 @@ const QUICK_NAV_COMMANDS: Array<{ panel: string; titleKey: string; title: string
   { panel: 'channels', titleKey: 'goToChannels', title: 'Go to Channels', aliases: ['messaging', 'telegram', 'whatsapp'] },
 ]
 
+const FOCUS_DELAY_MS = 50
+const DEFAULT_NAV_RESULTS = 6
+const MAX_QUICK_NAV_FILTERED = 8
+const API_SEARCH_LIMIT = 12
+const MAX_MERGED_RESULTS = 16
+const SEARCH_DEBOUNCE_MS = 250
+
 export function HeaderBar() {
   const { connection, sessions, unreadNotificationCount, activeTenant, activeProject, dashboardMode } = useMissionControl()
   const { reconnect } = useWebSocket()
@@ -50,10 +57,17 @@ export function HeaderBar() {
   const prefetchPanel = usePrefetchPanel()
   const th = useTranslations('header')
 
-  const activeSessions = sessions.filter(s => s.active).length
-  const hermesActive = sessions.filter(s => s.kind === 'hermes' && s.active).length
-  const claudeActive = sessions.filter(s => s.kind === 'claude-code' && s.active).length
-  const totalActive = activeSessions
+  const { activeSessions, hermesActive, claudeActive } = sessions.reduce(
+    (acc: { activeSessions: number; hermesActive: number; claudeActive: number }, s: { active?: boolean; kind?: string }) => {
+      if (s.active) {
+        acc.activeSessions++
+        if (s.kind === 'hermes') acc.hermesActive++
+        else if (s.kind === 'claude-code') acc.claudeActive++
+      }
+      return acc
+    },
+    { activeSessions: 0, hermesActive: 0, claudeActive: 0 }
+  )
 
   // Search state
   const [searchOpen, setSearchOpen] = useState(false)
@@ -77,7 +91,7 @@ export function HeaderBar() {
   const getQuickNavResults = useCallback((q: string): SearchResult[] => {
     const normalized = q.trim().toLowerCase()
     if (!normalized) {
-      return QUICK_NAV_COMMANDS.slice(0, 6).map((cmd, index) => ({
+      return QUICK_NAV_COMMANDS.slice(0, DEFAULT_NAV_RESULTS).map((cmd, index) => ({
         type: 'panel',
         id: -(index + 1),
         title: th(cmd.titleKey),
@@ -113,14 +127,14 @@ export function HeaderBar() {
       .filter((row): row is SearchResult & { _score: number } => Boolean(row))
       .sort((a, b) => b._score - a._score)
       .map(({ _score, ...row }) => row)
-      .slice(0, 8)
+      .slice(0, MAX_QUICK_NAV_FILTERED)
   }, [th])
 
   const openCommandPalette = useCallback(() => {
     setSearchOpen(true)
     setSearchResults(getQuickNavResults(''))
     setSelectedIndex(0)
-    setTimeout(() => searchInputRef.current?.focus(), 50)
+    setTimeout(() => searchInputRef.current?.focus(), FOCUS_DELAY_MS)
   }, [getQuickNavResults])
 
   const handleResultClick = useCallback((result: SearchResult) => {
@@ -259,11 +273,11 @@ export function HeaderBar() {
     }
     setSearchLoading(true)
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=12`)
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=${API_SEARCH_LIMIT}`)
       if (!res.ok) throw new Error(`Search API returned ${res.status}`)
       const data = await res.json()
       const entityResults: SearchResult[] = (data.results || []).map((r: SearchResult) => ({ ...r, source: 'entity' }))
-      const merged = [...quickResults, ...entityResults].slice(0, 16)
+      const merged = [...quickResults, ...entityResults].slice(0, MAX_MERGED_RESULTS)
       setSearchResults(merged)
       setSelectedIndex(0)
     } catch (err) {
@@ -279,7 +293,7 @@ export function HeaderBar() {
     setSearchQuery(value)
     setSelectedIndex(0)
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    searchTimeoutRef.current = setTimeout(() => doSearch(value), 250)
+    searchTimeoutRef.current = setTimeout(() => doSearch(value), SEARCH_DEBOUNCE_MS)
   }
 
   useEffect(() => {
@@ -355,7 +369,7 @@ export function HeaderBar() {
         {/* Right: status + actions */}
         <div className="flex items-center justify-end gap-1.5 md:gap-2 min-w-0 shrink-0 ml-auto">
           <div className="hidden xl:flex items-center gap-3">
-            <Stat label={th('sessions')} value={`${totalActive} (${claudeActive}C/${hermesActive}H)`} />
+            <Stat label={th('sessions')} value={`${activeSessions} (${claudeActive}C/${hermesActive}H)`} />
             <NavigationLatencyStat />
             <SseBadge connected={connection.sseConnected ?? false} />
             <DigitalClock />
@@ -580,8 +594,14 @@ function ModeBadge({
   )
 }
 
+const statusColorMap: Record<string, string> = {
+  success: 'text-emerald-400',
+  error: 'text-red-400',
+  warning: 'text-amber-400',
+}
+
 function Stat({ label, value, status }: { label: string; value: string; status?: 'success' | 'error' | 'warning' }) {
-  const statusColor = status === 'success' ? 'text-green-400' : status === 'error' ? 'text-red-400' : status === 'warning' ? 'text-amber-400' : 'text-foreground'
+  const statusColor = statusColorMap[status ?? ''] || 'text-zinc-100'
 
   return (
     <div className="flex items-center gap-1.5 text-xs">

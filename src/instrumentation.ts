@@ -1,3 +1,6 @@
+const FETCH_TIMEOUT_MS = 3_000
+const DEFAULT_MC_PORT = 3001
+
 declare global {
   var __claudiosPolling: boolean | undefined
 }
@@ -14,7 +17,7 @@ declare global {
  * with correct 4-state status: busy / idle / error (stalled) / offline.
  *
  * Graceful degradation: Claudios services being down does NOT crash MC.
- * All fetches have AbortSignal.timeout(3000) and catch blocks.
+ * All fetches have AbortSignal.timeout(FETCH_TIMEOUT_MS) and catch blocks.
  */
 export async function register() {
   // CRITICAL: Only run in Node.js runtime — not Edge, not during build.
@@ -49,9 +52,14 @@ export async function register() {
   }
 
   // MC base URL for internal API calls — service runs on PORT (default 3001)
-  const MC_BASE = process.env.MC_URL || `http://localhost:${process.env.PORT || 3001}`
+  const MC_BASE = process.env.MC_URL || `http://localhost:${process.env.PORT || DEFAULT_MC_PORT}`
   // Internal auth via x-api-key header (auth.ts does NOT support Basic scheme)
   const MC_API_KEY = process.env.API_KEY || ''
+
+  const mcHeaders = () => ({
+    'Content-Type': 'application/json',
+    'x-api-key': MC_API_KEY,
+  })
 
   // 3. Polling loop — upserts each Claudios session as an individual agent row in SQLite.
   //
@@ -62,7 +70,7 @@ export async function register() {
     try {
       // Fetch sessions from Session Manager
       const res = await fetch(`${claudiosConfig.sessionManagerUrl}/sessions`, {
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       })
       if (!res.ok) throw new Error(`Session Manager returned ${res.status}`)
       const { sessions } = await res.json() as {
@@ -74,6 +82,11 @@ export async function register() {
           status: 'active' | 'inactive'
           last_activity: string | null
         }>
+      }
+
+      if (!Array.isArray(sessions)) {
+        console.warn('[claudios] Unexpected sessions response shape')
+        return
       }
 
       // Upsert each session as an individual agent row in MC SQLite.
@@ -99,28 +112,22 @@ export async function register() {
           // Attempt create first
           const createRes = await fetch(`${MC_BASE}/api/agents`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': MC_API_KEY,
-            },
+            headers: mcHeaders(),
             body: JSON.stringify(agentPayload),
-            signal: AbortSignal.timeout(3000),
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
           })
 
           if (createRes.status === 409) {
             // Agent already exists — update status + config via PUT
             const updateRes = await fetch(`${MC_BASE}/api/agents`, {
               method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': MC_API_KEY,
-              },
+              headers: mcHeaders(),
               body: JSON.stringify({
                 name: agentName,
                 status: mcStatus,
                 config: agentPayload.config,
               }),
-              signal: AbortSignal.timeout(3000),
+              signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
             })
             if (!updateRes.ok) {
               console.warn(`[claudios] PUT /api/agents failed for ${agentName}: ${updateRes.status}`)

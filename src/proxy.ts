@@ -159,6 +159,7 @@ export function proxy(request: NextRequest) {
     if (origin) {
       let originHost: string
       try { originHost = new URL(origin).host } catch {
+        console.warn('[proxy] Malformed Origin header:', origin?.slice(0, 100))
         return addSecurityHeaders(NextResponse.json({ error: 'Invalid Origin header' }, { status: 400 }), request)
       }
       const requestHost = request.headers.get('host')?.split(',')[0]?.trim()
