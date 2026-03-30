@@ -138,7 +138,7 @@ export async function register() {
         }
       }
 
-      console.log(`[claudios] Poll complete: ${sessions.length} sessions`)
+
     } catch (err) {
       console.error('[claudios] Poll error:', err instanceof Error ? err.message : String(err))
     }

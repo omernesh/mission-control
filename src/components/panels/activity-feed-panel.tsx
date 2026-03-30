@@ -399,7 +399,7 @@ export function ActivityFeedPanel() {
               <option value="">{t('allTypes')}</option>
               {activityTypes.map((type) => (
                 <option key={type} value={type}>
-                  {activityIcons[type] || '•'} {type.replace('_', ' ')}
+                  {activityIcons[type] || '•'} {type.replaceAll('_', ' ')}
                 </option>
               ))}
             </select>

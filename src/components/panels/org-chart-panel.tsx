@@ -171,8 +171,8 @@ export function OrgChartPanel() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [hermesSessions, setHermesSessions] = useState<HermesSession[]>([])
   const [loading, setLoading] = useState(true)
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[])
+  const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[])
 
   const fetchSessions = useCallback(async () => {
     try {

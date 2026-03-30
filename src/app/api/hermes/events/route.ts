@@ -45,11 +45,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const contentLength = parseInt(request.headers.get('content-length') || '0', 10)
-    if (contentLength > 8192) {
+    const raw = await request.text()
+    if (raw.length > 8192) {
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 })
     }
-    const body = await request.json() as HermesEventBody
+    const body = JSON.parse(raw) as HermesEventBody
     const { event, source } = body
 
     if (!event || typeof event !== 'string') {
